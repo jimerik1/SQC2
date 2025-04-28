@@ -3,7 +3,6 @@ from flask import Flask
 from src.routes.survey import survey_bp
 from src.routes.qc.single_station import single_station_bp
 from src.routes.qc.multi_station import multi_station_bp
-from src.routes.qc.other import other_qc_bp
 from src.routes.toolcode import toolcode_bp
 
 def create_app(config_name=None):
@@ -20,7 +19,6 @@ def create_app(config_name=None):
     app.register_blueprint(survey_bp, url_prefix='/api/v1/survey')
     app.register_blueprint(single_station_bp, url_prefix='/api/v1/qc/single-station')
     app.register_blueprint(multi_station_bp, url_prefix='/api/v1/qc/multi-station')
-    app.register_blueprint(other_qc_bp, url_prefix='/api/v1/qc/other')
     app.register_blueprint(toolcode_bp, url_prefix='/api/v1/toolcode')
     
     @app.route('/healthz', methods=['GET'])

@@ -1,6 +1,6 @@
 import hashlib
 from functools import lru_cache
-from typing import Union
+from typing import Union, Optional
 from src.models.ipm import IPMFile, parse_ipm_file
 
 def _hash(text: str) -> str:
@@ -12,7 +12,7 @@ def _parse_cached(key: str, text: str) -> IPMFile:
     # key is only here to make lru_cache key = (key, text_hash) unique
     return parse_ipm_file(text)
 
-def get_ipm(ipm_data: Union[str, IPMFile], ipm_id: str | None = None) -> IPMFile:
+def get_ipm(ipm_data: Union[str, IPMFile], ipm_id: Optional[str] = None) -> IPMFile:
     """
     Return an IPMFile, using an in-process cache.
 

@@ -6,9 +6,9 @@ Implements Appendix 1 H of Ekseth et al. (2006).
 Key fix: stretch-term now uses depth * TVD * ΔDST, per Eq. 13.
 """
 import math
-from models.qc_result import QCResult
-from utils.ipm_parser import parse_ipm_file
-from utils.tolerance import get_error_term_value
+from src.models.qc_result import QCResult
+from src.utils.ipm_parser import parse_ipm_file
+from src.utils.tolerance import get_error_term_value
 
 
 # --------------------------------------------------------------------------- #
