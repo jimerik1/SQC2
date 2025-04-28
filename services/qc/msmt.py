@@ -4,7 +4,7 @@ import numpy as np
 from models.qc_result import QCResult
 from utils.ipm_parser import parse_ipm_file
 from services.toolcode.tolerance import get_error_term_value
-
+from utils.linalg import safe_inverse
 
 def perform_msmt(surveys, ipm_data):
     """
@@ -79,7 +79,11 @@ def perform_msmt(surveys, ipm_data):
     X, *_ = np.linalg.lstsq(A, comb_err, rcond=None)   # MB/ MS vector
     residuals = comb_err - A @ X
 
-    cof = np.linalg.inv(A.T @ A)
+    try:
+        cof = safe_inverse(A.T @ A)
+    except np.linalg.LinAlgError as exc:
+        return _fail(str(exc))
+    
     corr = cof / np.sqrt(np.outer(np.diag(cof), np.diag(cof)))
     max_corr = np.abs(corr - np.eye(6)).max()
 

@@ -1,103 +1,94 @@
+# services/qc/dddt.py
+"""
+Dual-Depth Difference Test (DDDT)
+
+Implements Appendix 1 H of Ekseth et al. (2006).
+Key fix: stretch-term now uses depth * TVD * ΔDST, per Eq. 13.
+"""
 import math
-import numpy as np
 from models.qc_result import QCResult
 from utils.ipm_parser import parse_ipm_file
 from services.toolcode.tolerance import get_error_term_value
 
-def perform_dddt(pipe_depth, wireline_depth, survey, ipm_data):
+
+# --------------------------------------------------------------------------- #
+#  Public API
+# --------------------------------------------------------------------------- #
+def perform_dddt(pipe_depth: float,
+                 wireline_depth: float,
+                 survey: dict,
+                 ipm_data):
     """
-    Performs Dual Depth Difference Test (DDDT) on pipe and wireline depth measurements
-    
-    Args:
-        pipe_depth (float): Measured depth from pipe tally (m)
-        wireline_depth (float): Measured depth from wireline (m)
-        survey (dict): Survey data containing:
-            - inclination: Survey inclination (degrees)
-            - azimuth: Survey azimuth (degrees)
-            - true_vertical_depth: True vertical depth (m) (optional)
-        ipm_data (dict): Instrument Performance Model data containing error terms
-        
-    Returns:
-        dict: QC test results with:
-            - is_valid: Boolean indicating if measurements passed the test
-            - pipe_depth: Pipe depth measurement
-            - wireline_depth: Wireline depth measurement
-            - depth_difference: Difference between pipe and wireline depths
-            - tolerance: Calculated tolerance based on IPM
-            - details: Additional test details
+    Dual-Depth Difference Test (DDDT)
+
+    Args
+    ----
+    pipe_depth : float
+        Depth from pipe tally [m].
+    wireline_depth : float
+        Depth from wireline (e.g. CCL) [m].
+    survey : dict
+        Must contain 'inclination' (deg) and may contain 'true_vertical_depth'.
+    ipm_data : str | dict
+        Raw IPM text or parsed IPMFile.
+
+    Returns
+    -------
+    dict  – QCResult.as_dict()
     """
-    # Extract data
-    inclination = survey.get('inclination', 0)
-    
-    # Calculate true vertical depth if not provided
-    true_vertical_depth = survey.get('true_vertical_depth')
-    if true_vertical_depth is None:
-        # Simple approximation assuming straight borehole at current inclination
-        true_vertical_depth = pipe_depth * math.cos(math.radians(inclination))
-    
-    # Calculate depth difference
-    depth_difference = pipe_depth - wireline_depth
-    
-    # Calculate tolerance
-    tolerance = calculate_dddt_tolerance(ipm_data, pipe_depth, true_vertical_depth)
-    
-    # Determine if the depth measurements are valid
-    is_valid = abs(depth_difference) <= tolerance
-    
-    # Create result
+    inc_deg = survey.get("inclination", 0.0)
+
+    # TVD – if caller did not supply it, approximate assuming straight hole
+    tvd = survey.get("true_vertical_depth")
+    if tvd is None:
+        tvd = pipe_depth * math.cos(math.radians(inc_deg))
+
+    depth_diff = pipe_depth - wireline_depth
+    tol = calculate_dddt_tolerance(ipm_data, pipe_depth, tvd)
+
     result = QCResult("DDDT")
-    result.set_validity(is_valid)
+    result.set_validity(abs(depth_diff) <= tol)
     result.add_measurement("pipe_depth", pipe_depth)
     result.add_measurement("wireline_depth", wireline_depth)
-    result.add_error("depth_difference", depth_difference)
-    result.add_tolerance("depth_difference", tolerance)  # key now matches
-    result.add_detail("true_vertical_depth", true_vertical_depth)
-    
+    result.add_error("depth_difference", depth_diff)
+    result.add_tolerance("depth_difference", tol)
+    result.add_detail("true_vertical_depth", tvd)
+
     return result.to_dict()
 
-def calculate_dddt_tolerance(ipm_data, depth, true_vertical_depth):
+
+# --------------------------------------------------------------------------- #
+#  Core tolerance math
+# --------------------------------------------------------------------------- #
+def calculate_dddt_tolerance(ipm_data,
+                             depth: float,
+                             true_vertical_depth: float) -> float:
     """
-    Calculate tolerance for Dual Depth Difference Test
-    
-    Args:
-        ipm_data (dict): IPM data containing depth error terms
-        depth (float): Measured depth (m)
-        true_vertical_depth (float): True vertical depth (m)
-        
-    Returns:
-        float: Tolerance value for DDDT
+    3-σ tolerance for ΔΔD  (Eq. 13, Ekseth 2006).
+
+        ΔΔD = ΔDREF + Dt·ΔDSF + Dt·Dv·ΔDST
+
+    where Dt = measured depth, Dv = TVD.
     """
-    # Parse IPM if it's string content
-    if isinstance(ipm_data, str):
-        ipm = parse_ipm_file(ipm_data)
-    else:
-        ipm = ipm_data
-    
-    # Get depth error terms from IPM
-    # Depth reference errors
-    dref_p = get_error_term_value(ipm, 'DREF-PIPE', 'e', 's')
-    dref_w = get_error_term_value(ipm, 'DREF-WIRE', 'e', 's')
-    
-    # Depth scale factor errors
-    dsf_p = get_error_term_value(ipm, 'DSF-PIPE', 'e', 's')
-    dsf_w = get_error_term_value(ipm, 'DSF-WIRE', 'e', 's')
-    
-    # Depth stretch errors
-    dst_p = get_error_term_value(ipm, 'DST-PIPE', 'e', 's')
-    dst_w = get_error_term_value(ipm, 'DST-WIRE', 'e', 's')
-    
-    # Calculate tolerance (3-sigma) based on equation from the paper
-    # ΔΔD = ΔDREF + Dt * ΔDSF + Dt * Dv * ΔDST
-    # where ΔDREF = DREF_p - DREF_w, etc.
-    
-    dref_diff = math.sqrt(dref_p**2 + dref_w**2)
-    dsf_diff = math.sqrt(dsf_p**2 + dsf_w**2)
-    dst_diff = math.sqrt(dst_p**2 + dst_w**2)
-    
-    tolerance = 3 * math.sqrt(
-        dref_diff**2 +
-        (depth * dsf_diff)**2 +
-        (true_vertical_depth * dst_diff)**2      # <-- removed extra depth factor
+    ipm = parse_ipm_file(ipm_data) if isinstance(ipm_data, str) else ipm_data
+
+    # 1-σ sigmas from IPM
+    dref_p = get_error_term_value(ipm, "DREF-PIPE", "e", "s")
+    dref_w = get_error_term_value(ipm, "DREF-WIRE", "e", "s")
+    dsf_p  = get_error_term_value(ipm, "DSF-PIPE",  "e", "s")
+    dsf_w  = get_error_term_value(ipm, "DSF-WIRE",  "e", "s")
+    dst_p  = get_error_term_value(ipm, "DST-PIPE",  "e", "s")
+    dst_w  = get_error_term_value(ipm, "DST-WIRE",  "e", "s")
+
+    # Combine independent pipe + wire sigmas (root-sum-square)
+    dref_diff = math.hypot(dref_p, dref_w)
+    dsf_diff  = math.hypot(dsf_p,  dsf_w)
+    dst_diff  = math.hypot(dst_p,  dst_w)
+
+    # Full 3-σ tolerance
+    tol = 3.0 * math.sqrt(
+        dref_diff ** 2 +
+        (depth * dsf_diff) ** 2 +
+        (depth * true_vertical_depth * dst_diff) ** 2      # ← fixed term
     )
-    
-    return tolerance
+    return tol

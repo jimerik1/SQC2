@@ -3,6 +3,7 @@ import math, numpy as np
 from models.qc_result import QCResult
 from utils.ipm_parser import parse_ipm_file
 from services.toolcode.tolerance import get_error_term_value
+from utils.linalg import safe_inverse
 
 
 # --------------------------------------------------------------------------- #
@@ -75,10 +76,13 @@ def perform_mse(surveys, ipm_data):
     converged=it<19
 
     JTJ=J.T@J+1e-6*np.eye(J.shape[1])
+    
+    # robust inverse
     try:
-        cov=np.linalg.inv(JTJ)
-    except np.linalg.LinAlgError:
-        cov=np.full_like(JTJ,np.nan)
+        cov = safe_inverse(JTJ, ridge=1e-6)     
+    except np.linalg.LinAlgError as exc:
+        return _fail(str(exc))                   # abort with a clear message
+        
     err_cov=cov[-np_:,-np_:]
     err_std=np.sqrt(np.diag(err_cov))
     corr=err_cov/np.sqrt(np.outer(err_std,err_std))
