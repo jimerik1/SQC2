@@ -1,6 +1,6 @@
 # …/stages/02_multistation.py
 from typing import List
-from models.survey import Survey
+from src.models.survey import Survey
 
 _MS_KEYS = {"msat_params","msgt_params","msmt_params"}  # put these in ctx
 

@@ -1,7 +1,7 @@
 # …/stages/03_sag_misalignment.py
 import math, numpy as np
 from typing import List
-from models.survey import Survey
+from src.models.survey import Survey
 
 def _rot_x(theta):  # theta rad
     c,s = math.cos(theta), math.sin(theta)

@@ -1,6 +1,6 @@
 # …/stages/04_geomagnetic.py
 from typing import List
-from models.survey import Survey
+from src.models.survey import Survey
 
 def apply(surveys: List[Survey], ctx: dict) -> List[Survey]:
     dec_corr = ctx.get("declination_correction_deg")

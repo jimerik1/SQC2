@@ -1,6 +1,6 @@
 # services/survey/validator.py
 import math
-from models.survey import Survey
+from src.models.survey import Survey
 
 def validate_survey(survey_data):
     """

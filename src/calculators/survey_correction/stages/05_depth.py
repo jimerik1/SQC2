@@ -1,6 +1,6 @@
 # …/stages/05_depth.py
 from typing import List
-from models.survey import Survey
+from src.models.survey import Survey
 import math
 
 def apply(surveys: List[Survey], ctx: dict) -> List[Survey]:

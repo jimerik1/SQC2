@@ -1,7 +1,7 @@
 # …/stages/01_ipm_sensor.py
 from typing import List
-from models.survey import Survey
-from utils.ipm_parser import parse_ipm_file
+from src.models.survey import Survey
+from src.utils.ipm_parser import parse_ipm_file
 
 _BIAS_TERMS  = ["ABX","ABY","ABZ","MBX","MBY","MBZ","GBX","GBY"]
 _SCALE_TERMS = ["ASX","ASY","ASZ","MSX","MSY","MSZ"]
