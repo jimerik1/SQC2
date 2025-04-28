@@ -50,7 +50,7 @@ def perform_dddt(pipe_depth, wireline_depth, survey, ipm_data):
     result.add_measurement("pipe_depth", pipe_depth)
     result.add_measurement("wireline_depth", wireline_depth)
     result.add_error("depth_difference", depth_difference)
-    result.add_tolerance("depth", tolerance)
+    result.add_tolerance("depth_difference", tolerance)  # key now matches
     result.add_detail("true_vertical_depth", true_vertical_depth)
     
     return result.to_dict()
@@ -95,9 +95,9 @@ def calculate_dddt_tolerance(ipm_data, depth, true_vertical_depth):
     dst_diff = math.sqrt(dst_p**2 + dst_w**2)
     
     tolerance = 3 * math.sqrt(
-        dref_diff**2 + 
-        (depth * dsf_diff)**2 + 
-        (depth * true_vertical_depth * dst_diff)**2
+        dref_diff**2 +
+        (depth * dsf_diff)**2 +
+        (true_vertical_depth * dst_diff)**2      # <-- removed extra depth factor
     )
     
     return tolerance

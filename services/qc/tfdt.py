@@ -48,10 +48,9 @@ def perform_tfdt(survey, ipm_data):
     depth = survey['depth']
     
     # Get geomagnetic model data if not provided
-    if 'geomagnetic_field' in survey:
-        geo_data = survey['geomagnetic_field']
-    else:
-        geo_data = get_geomagnetic_field(longitude, latitude, depth)
+    geo_data = (survey.get('expected_geomagnetic_field') or 
+                survey.get('geomagnetic_field') or 
+                get_geomagnetic_field(longitude, latitude, depth))
     
     # Calculate measured total magnetic field
     measured_total_field = math.sqrt(mag_x**2 + mag_y**2 + mag_z**2)

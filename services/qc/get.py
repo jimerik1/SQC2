@@ -4,7 +4,7 @@ from models.qc_result import QCResult
 from utils.ipm_parser import parse_ipm_file
 from services.toolcode.tolerance import get_error_term_value
 
-def perform_get(survey, ipm_data):
+def perform_get(survey: dict, ipm_data, theoretical_gravity: float):
     """
     Performs Gravity Error Test (GET) on a single survey station
     
@@ -43,8 +43,9 @@ def perform_get(survey, ipm_data):
     gravity_error = measured_gravity - theoretical_gravity
     
     # Calculate tolerance
-    tolerance = calculate_get_tolerance(ipm_data, inclination, toolface)
-    
+    tolerance = calculate_get_tolerance(
+        ipm_data, inclination, toolface, theoretical_gravity
+    )    
     # Determine if the survey is valid
     is_valid = abs(gravity_error) <= tolerance
     
@@ -86,47 +87,34 @@ def calculate_get_weighting_functions(inclination, toolface):
         'wz': wz
     }
 
-def calculate_get_tolerance(ipm_data, inclination, toolface):
+def calculate_get_tolerance(ipm_data, inclination, toolface, gt):
     """
-    Calculate tolerance for Gravity Error Test
-    
-    Args:
-        ipm_data (dict): IPM data containing accelerometer error terms
-        inclination (float): Inclination in degrees
-        toolface (float): Toolface in degrees
-        
-    Returns:
-        float: Tolerance value for GET
+    gt : local theoretical gravity at the station (m/s² or in 'g', as consistent
+         with your IPM units)
     """
-    # Parse IPM if it's string content
-    if isinstance(ipm_data, str):
-        ipm = parse_ipm_file(ipm_data)
-    else:
-        ipm = ipm_data
-    
-    # Get weighting functions
-    weights = calculate_get_weighting_functions(inclination, toolface)
-    wx = weights['wx']
-    wy = weights['wy']
-    wz = weights['wz']
-    
-    # Get error terms from IPM
+    ipm = parse_ipm_file(ipm_data) if isinstance(ipm_data, str) else ipm_data
+
+    wx, wy, wz = (math.sin(math.radians(inclination)) * math.sin(math.radians(toolface)),
+                  math.sin(math.radians(inclination)) * math.cos(math.radians(toolface)),
+                  math.cos(math.radians(inclination)))
+
+    # Error terms
     abx = get_error_term_value(ipm, 'ABXY-TI1S', 'e', 's')
     aby = get_error_term_value(ipm, 'ABXY-TI1S', 'e', 's')
-    abz = get_error_term_value(ipm, 'ABZ', 'e', 's')
-    asx = get_error_term_value(ipm, 'ASXY-TI1S', 'e', 's')
-    asy = get_error_term_value(ipm, 'ASXY-TI1S', 'e', 's')
-    asz = get_error_term_value(ipm, 'ASZ', 'e', 's')
-    
-    # Calculate tolerance (3-sigma)
-    g = 9.80665  # Standard gravity in m/s²
+    abz = get_error_term_value(ipm, 'ABZ',        'e', 's')
+
+    asx = get_error_term_value(ipm, 'ASXY-TI1S',  'e', 's')
+    asy = get_error_term_value(ipm, 'ASXY-TI1S',  'e', 's')
+    asz = get_error_term_value(ipm, 'ASZ',        'e', 's')
+
+    # 3-sigma tolerance δG (Eq. 3 & weighting functions, paper)
     tolerance = 3 * math.sqrt(
-        (abx * wx)**2 + 
-        (aby * wy)**2 + 
-        (abz * wz)**2 + 
-        (asx * wx * g)**2 + 
-        (asy * wy * g)**2 + 
-        (asz * wz * g)**2
+        (abx * wx)**2 +
+        (aby * wy)**2 +
+        (abz * wz)**2 +
+        (2 * asx * wx * gt)**2 +
+        (2 * asy * wy * gt)**2 +
+        (2 * asz * wz * gt)**2
+        # + (d_gt)**2  # add if you carry uncertainty in theoretical gravity
     )
-    
     return tolerance

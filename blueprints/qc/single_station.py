@@ -3,7 +3,7 @@ from services.qc.get import perform_get
 from services.qc.tfdt import perform_tfdt
 from services.qc.hert import perform_hert
 from services.qc.rsmt import perform_rsmt
-from services.qc.dddt import perform_dddt  # Fixed import path
+from services.qc.dddt import perform_dddt  
 
 single_station_bp = Blueprint('single_station', __name__)
 measurement_bp = Blueprint('measurement', __name__)
@@ -38,7 +38,8 @@ def gravity_error_test():
         if field not in data['survey']:
             return jsonify({'error': f'Missing required field: {field}'}), 400
     
-    result = perform_get(data['survey'], data['ipm'])
+    theory_g = data['survey']['expected_gravity']
+    result = perform_get(data['survey'], data['ipm'], theory_g)
     return jsonify(result)
 
 @single_station_bp.route('/tfdt', methods=['POST'])
