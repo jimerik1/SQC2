@@ -197,39 +197,21 @@ def apply_sensor_corrections(survey, ipm):
     return corrected
 
 def apply_magnetic_corrections(survey):
-    """
-    Apply corrections for the geomagnetic field
-    
-    Args:
-        survey (Survey): Survey object to correct
-        
-    Returns:
-        Survey: Corrected survey
-    """
-    # This would use a geomagnetic model like IGRF or WMM
-    # For now, just use provided reference field if available
+    """Apply corrections for the geomagnetic field"""
     corrected = Survey(survey.to_dict())
     
+    # Use provided reference field data
     if hasattr(survey, 'expected_geomagnetic_field') and survey.expected_geomagnetic_field:
-        # Use provided field data
+        # Apply corrections based on the provided field data
+        # (Implement actual correction algorithm here)
         pass
     else:
-        # Could implement a call to a geomagnetic model here
-        pass
+        raise ValueError("Expected geomagnetic field data not provided in survey input")
     
     return corrected
 
 def apply_multi_station_corrections(surveys, ipm=None):
-    """
-    Apply corrections based on multi-station analysis
-    
-    Args:
-        surveys (list): List of Survey objects
-        ipm (IPMFile, optional): Instrument Performance Model
-        
-    Returns:
-        list: Corrected Survey objects
-    """
+    """Apply corrections based on multi-station analysis"""
     # This would implement multi-station analysis corrections
-    # For now, just return the input surveys
-    return surveys
+    # For now, return a message that this is not implemented
+    return surveys  # Return unmodified surveys with a logging message

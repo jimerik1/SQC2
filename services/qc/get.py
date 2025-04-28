@@ -13,8 +13,7 @@ def perform_get(survey, ipm_data):
             - accelerometer_x, accelerometer_y, accelerometer_z: Accelerometer measurements (g)
             - inclination: Survey inclination (degrees)
             - toolface: Survey toolface (degrees)
-            - depth: Measured depth (m)
-            - latitude: Survey location latitude (degrees)
+            - expected_gravity: Expected theoretical gravity (g) from external gravity model
         
         ipm_data (dict): Instrument Performance Model data containing error terms
         
@@ -22,7 +21,7 @@ def perform_get(survey, ipm_data):
         dict: QC test results with:
             - is_valid: Boolean indicating if survey passed the test
             - measured_gravity: Calculated gravity from accelerometer readings
-            - theoretical_gravity: Expected gravity at the given location and depth
+            - theoretical_gravity: Expected gravity provided in the input
             - gravity_error: Difference between measured and theoretical gravity
             - tolerance: Calculated tolerance based on IPM
             - details: Additional test details
@@ -33,14 +32,12 @@ def perform_get(survey, ipm_data):
     acc_z = survey['accelerometer_z']
     inclination = survey['inclination']
     toolface = survey['toolface']
-    depth = survey['depth']
-    latitude = survey['latitude']
     
     # Calculate measured gravity
     measured_gravity = math.sqrt(acc_x**2 + acc_y**2 + acc_z**2)
     
-    # Calculate theoretical gravity at the given latitude and depth
-    theoretical_gravity = calculate_theoretical_gravity(latitude, depth)
+    # Use provided theoretical gravity from input
+    theoretical_gravity = survey['expected_gravity']
     
     # Calculate gravity error
     gravity_error = measured_gravity - theoretical_gravity
@@ -63,32 +60,6 @@ def perform_get(survey, ipm_data):
     result.add_detail("weighting_functions", calculate_get_weighting_functions(inclination, toolface))
     
     return result.to_dict()
-
-def calculate_theoretical_gravity(latitude, depth):
-    """
-    Calculate theoretical gravity at a given latitude and depth
-    
-    Args:
-        latitude (float): Latitude in degrees
-        depth (float): Vertical depth in meters
-        
-    Returns:
-        float: Theoretical gravity in g
-    """
-    # Normal gravity formula (WGS 84 Ellipsoid)
-    lat_rad = math.radians(latitude)
-    surface_gravity = 9.7803267714 * (1 + 0.00193185138639 * math.sin(lat_rad)**2) / \
-                     math.sqrt(1 - 0.00669437999013 * math.sin(lat_rad)**2)
-    
-    # Convert to g units (divide by standard gravity)
-    surface_gravity_g = surface_gravity / 9.80665
-    
-    # Apply depth correction (free-air correction + Bouguer correction)
-    # Approximation: 0.3086 mGal/m free-air gradient
-    free_air_correction = 0.3086 * depth / 1000 / 9.80665
-    
-    # Return corrected gravity
-    return surface_gravity_g - free_air_correction
 
 def calculate_get_weighting_functions(inclination, toolface):
     """
