@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: CD/Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      # Flask configuration
+      - FLASK_APP=wsgi.py
+      - FLASK_ENV=production
+      - SECRET_KEY=change-this-in-production-and-use-docker-secrets-in-production
+      - DEBUG=false
+      - TESTING=false
+      
+      # Add any other configuration values you need here
+      # For example:
+      # - DATABASE_URL=postgresql://user:password@db:5432/dbname
+      # - LOGGING_LEVEL=INFO
+    volumes:
+      - ./:/app
+    restart: unless-stopped

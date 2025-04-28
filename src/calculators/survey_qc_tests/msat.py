@@ -3,7 +3,7 @@ import math
 import numpy as np
 from models.qc_result import QCResult
 from utils.ipm_parser import parse_ipm_file
-from services.toolcode.tolerance import get_error_term_value
+from utils.tolerance import get_error_term_value
 from utils.linalg import safe_inverse
 
 
@@ -59,7 +59,11 @@ def perform_msat(surveys, ipm_data):
     residuals = dG - A @ X
 
     # correlation matrix
-    cofactor = safe_inverse(A.T @ A)
+    try:
+        cofactor = safe_inverse(A.T @ A)
+    except np.linalg.LinAlgError as exc:
+        return _fail(str(exc))
+
     corr = cofactor / np.sqrt(np.outer(np.diag(cofactor), np.diag(cofactor)))
     max_corr = np.abs(corr - np.eye(corr.shape[0])).max()
 

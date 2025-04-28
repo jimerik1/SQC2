@@ -8,7 +8,7 @@ Key fix: stretch-term now uses depth * TVD * ΔDST, per Eq. 13.
 import math
 from models.qc_result import QCResult
 from utils.ipm_parser import parse_ipm_file
-from services.toolcode.tolerance import get_error_term_value
+from utils.tolerance import get_error_term_value
 
 
 # --------------------------------------------------------------------------- #

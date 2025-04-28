@@ -7,7 +7,7 @@ from typing import List, Dict
 from models.survey import Survey
 
 _STAGE_DIR = Path(__file__).with_suffix('').parent / "stages"
-_STAGE_ORDER = sorted(p.stem for p in _stage_dir.glob("*.py") if p.stem[0].isdigit())
+_STAGE_ORDER = sorted(p.stem for p in _STAGE_DIR.glob("*.py") if p.stem[0].isdigit())
 
 def _load_stage(name: str):
     return import_module(f"services.survey.corrector.stages.{name}")

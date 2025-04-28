@@ -14,7 +14,7 @@ uniformly.
 import math
 from models.qc_result import QCResult
 from utils.ipm_parser import parse_ipm_file
-from services.toolcode.tolerance import get_error_term_value
+from utils.tolerance import get_error_term_value
 
 EARTH_RATE_DPH = 15.041067  # deg / hr  (sidereal)
 
