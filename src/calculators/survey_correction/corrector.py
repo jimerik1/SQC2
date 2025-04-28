@@ -1,7 +1,7 @@
 # services/survey/corrector.py
 import math
 import numpy as np
-from models.survey import Survey
+from src.models.survey import Survey
 from utils.ipm_parser import parse_ipm_file
 
 def correct_surveys(surveys_data, ipm_data=None):

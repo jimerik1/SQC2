@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
-from services.survey.validator import validate_survey
-from services.survey.analyzer import analyze_surveys
-from services.survey.corrector import correct_surveys
+from src.calculators.survey_correction.validator import validate_survey
+from src.calculators.survey_correction.analyzer import analyze_surveys
+from src.calculators.survey_correction.corrector import correct_surveys
 
 survey_bp = Blueprint('survey', __name__)
 

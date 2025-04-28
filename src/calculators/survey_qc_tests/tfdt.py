@@ -11,10 +11,9 @@ We still compute pass/fail but attach geometry warnings so the client can
 flag reduced confidence.
 """
 import math
-from models.qc_result import QCResult
-from utils.ipm_parser import parse_ipm_file
-from utils.tolerance import get_error_term_value
-
+from src.models.qc_result import QCResult
+from src.utils.ipm_parser import parse_ipm_file
+from src.utils.tolerance import get_error_term_value
 # Geometry thresholds
 INC_WARN_LOW   = 10.0   # deg
 INC_WARN_HIGH  = 80.0   # deg

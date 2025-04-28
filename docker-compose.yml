@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: CD/Dockerfile
     ports:
-      - "5000:5000"
+      - "5199:5000"
     environment:
       # Flask configuration
       - FLASK_APP=wsgi.py

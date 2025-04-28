@@ -1,7 +1,7 @@
 # services/survey/analyzer.py
 import math
 import numpy as np
-from models.survey import Survey
+from src.models.survey import Survey
 
 def analyze_surveys(surveys_data):
     """

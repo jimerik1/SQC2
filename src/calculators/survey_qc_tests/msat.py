@@ -1,10 +1,10 @@
 # services/qc/msat.py
 import math
 import numpy as np
-from models.qc_result import QCResult
-from utils.ipm_parser import parse_ipm_file
-from utils.tolerance import get_error_term_value
-from utils.linalg import safe_inverse
+from src.models.qc_result import QCResult
+from src.utils.ipm_parser import parse_ipm_file
+from src.utils.tolerance import get_error_term_value
+from src.utils.linalg import safe_inverse
 
 
 def perform_msat(surveys, ipm_data):

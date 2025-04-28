@@ -1,9 +1,9 @@
 from flask import Blueprint, request, jsonify
-from services.qc.get import perform_get
-from services.qc.tfdt import perform_tfdt
-from services.qc.hert import perform_hert
-from services.qc.rsmt import perform_rsmt
-from services.qc.dddt import perform_dddt  
+from src.calculators.survey_qc_tests.get import perform_get
+from src.calculators.survey_qc_tests.tfdt import perform_tfdt
+from src.calculators.survey_qc_tests.hert import perform_hert
+from src.calculators.survey_qc_tests.rsmt import perform_rsmt
+from src.calculators.survey_qc_tests.dddt import perform_dddt  
 
 single_station_bp = Blueprint('single_station', __name__)
 measurement_bp = Blueprint('measurement', __name__)

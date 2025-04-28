@@ -12,9 +12,10 @@ The warning pattern mirrors GET and TFDT so front-end code can treat it
 uniformly.
 """
 import math
-from models.qc_result import QCResult
-from utils.ipm_parser import parse_ipm_file
-from utils.tolerance import get_error_term_value
+from src.models.qc_result import QCResult
+from src.utils.ipm_parser import parse_ipm_file
+from src.utils.tolerance import get_error_term_value
+from src.utils.tolerance import get_error_term_value
 
 EARTH_RATE_DPH = 15.041067  # deg / hr  (sidereal)
 

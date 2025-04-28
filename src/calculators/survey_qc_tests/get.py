@@ -17,9 +17,10 @@ Output
 QCResult.serialised dict
 """
 import math
-from models.qc_result import QCResult
-from utils.ipm_parser import parse_ipm_file
-from utils.ipm_cache import get_ipm
+from src.models.qc_result import QCResult
+from src.utils.ipm_parser import parse_ipm_file
+from src.utils.tolerance import get_error_term_value
+from src.utils.ipm_cache import get_ipm
 
 # advisory thresholds (deg)
 INC_WARN_LOW  = 10.0

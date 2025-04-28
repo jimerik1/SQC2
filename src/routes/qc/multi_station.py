@@ -1,9 +1,9 @@
 # blueprints/qc/multi_station.py
 from flask import Blueprint, request, jsonify
-from services.qc.msat import perform_msat
-from services.qc.msgt import perform_msgt
-from services.qc.msmt import perform_msmt
-from services.qc.mse import perform_mse
+from src.calculators.survey_qc_tests.msat import perform_msat
+from src.calculators.survey_qc_tests.msgt import perform_msgt
+from src.calculators.survey_qc_tests.msmt import perform_msmt
+from src.calculators.survey_qc_tests.mse import perform_mse
 
 multi_station_bp = Blueprint('multi_station', __name__)
 

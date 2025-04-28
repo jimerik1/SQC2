@@ -19,9 +19,9 @@ from typing import List, Dict, Any, Tuple
 
 import numpy as np
 
-from models.qc_result import QCResult
-from utils.ipm_parser import parse_ipm_file
-from utils.tolerance import get_error_term_value
+from src.models.qc_result import QCResult
+from src.utils.ipm_parser import parse_ipm_file
+from src.utils.tolerance import get_error_term_value
 
 # -----------------------------------------------------------------------------
 # Tunables (override from app config if desired)
