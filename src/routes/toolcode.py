@@ -1,7 +1,6 @@
 # blueprints/toolcode.py
 from flask import Blueprint, request, jsonify
 from utils.ipm_parser import parse_ipm_file
-from services.toolcode.tolerance import get_error_term_value, calculate_get_tolerance
 
 toolcode_bp = Blueprint('toolcode', __name__)
 
@@ -47,30 +46,6 @@ def get_error_term():
             return jsonify({'error': 'Error term not found'}), 404
     except Exception as e:
         return jsonify({'error': f'Failed to get error term: {str(e)}'}), 400
-
-@toolcode_bp.route('/calculate-get-tolerance', methods=['POST'])
-def calc_get_tolerance():
-    """Calculate tolerance for Gravity Error Test based on IPM"""
-    data = request.get_json()
-    
-    if 'ipm_content' not in data:
-        return jsonify({'error': 'IPM content is required'}), 400
-    if 'inclination' not in data:
-        return jsonify({'error': 'Inclination is required'}), 400
-    if 'toolface' not in data:
-        return jsonify({'error': 'Toolface is required'}), 400
-    
-    try:
-        ipm = parse_ipm_file(data['ipm_content'])
-        tolerance = calculate_get_tolerance(ipm, data['inclination'], data['toolface'])
-        
-        return jsonify({
-            'tolerance': tolerance,
-            'inclination': data['inclination'],
-            'toolface': data['toolface']
-        })
-    except Exception as e:
-        return jsonify({'error': f'Failed to calculate tolerance: {str(e)}'}), 400
 
 @toolcode_bp.route('/supported-tests', methods=['GET'])
 def get_supported_tests():

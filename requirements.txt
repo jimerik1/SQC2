@@ -1,2 +1,10 @@
-flask>=2.0.0
-numpy>=1.20.0
+# ─── Core web stack ───────────────────────────────────────────────────────────
+Flask>=2.3,<3.0          # app / blueprints
+gunicorn>=21.2,<22.0     # prod WSGI server used by Dockerfile (optional in dev)
+
+# ─── Numerical computing ─────────────────────────────────────────────────────
+numpy>=1.24,<2.0         # all QC math, linear algebra
+
+# ─── Dev / test extras ────────────────────
+pytest>=7.4,<8.0
+# black>=24.3,<25.0
