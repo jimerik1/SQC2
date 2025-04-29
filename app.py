@@ -3,9 +3,10 @@ from flask import Flask
 from src.routes.survey import survey_bp
 from src.routes.internal_qc.single_station import single_station_bp
 from src.routes.internal_qc.multi_station import multi_station_bp
-from src.routes.external_qc.comparison import external_qc_bp
+from src.routes.comparison_qc.comparison import comparison_qc_bp
 from src.routes.internal_qc.measurement import measurement_bp
 from src.routes.toolcode import toolcode_bp
+from src.routes.recommendations import recommendations_bp
 
 def create_app(config_name=None):
     app = Flask(__name__)
@@ -19,13 +20,16 @@ def create_app(config_name=None):
     
     # Register basic blueprints
     app.register_blueprint(survey_bp, url_prefix='/api/v1/survey')
-    app.register_blueprint(single_station_bp, url_prefix='/api/v1/qc/internal/single-station')
-    app.register_blueprint(multi_station_bp, url_prefix='/api/v1/qc/internal/multi-station')
+    app.register_blueprint(single_station_bp, url_prefix='/api/v1/qc/single-station')
+    app.register_blueprint(multi_station_bp, url_prefix='/api/v1/qc/multi-station')
     app.register_blueprint(toolcode_bp, url_prefix='/api/v1/toolcode')
     app.register_blueprint(measurement_bp, url_prefix='/api/v1/qc/measurement')  # Add this line
     
-    # Register  external QC blueprint
-    app.register_blueprint(external_qc_bp, url_prefix='/api/v1/qc/external')
+    # Register comparison QC blueprint
+    app.register_blueprint(comparison_qc_bp, url_prefix='/api/v1/qc/comparison')
+    
+    # Register recommendations blueprint
+    app.register_blueprint(recommendations_bp, url_prefix='/api/v1/recommendations')
 
     
     @app.route('/healthz', methods=['GET'])

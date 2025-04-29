@@ -1,4 +1,4 @@
-# src/routes/external_qc/comparison.py
+# src/routes/comparison/comparison.py
 from flask import Blueprint, request, jsonify
 from src.calculators.comparison_tests.iomt import perform_iomt
 from src.calculators.comparison_tests.cadt import perform_cadt
@@ -6,9 +6,9 @@ from src.calculators.comparison_tests.idt import perform_idt
 from src.calculators.comparison_tests.adt import perform_adt
 from src.calculators.comparison_tests.codt import perform_codt
 
-external_qc_bp = Blueprint('external_qc', __name__)
+comparison_qc_bp = Blueprint('comparison_qc', __name__)
 
-@external_qc_bp.route('/iomt', methods=['POST'])
+@comparison_qc_bp.route('/iomt', methods=['POST'])
 def in_out_misalignment_test():
     """
     Perform In-run/Out-run Misalignment Test (IOMT)
@@ -45,7 +45,7 @@ def in_out_misalignment_test():
     result = perform_iomt(data['in_run'], data['out_run'], data['ipm'])
     return jsonify(result)
 
-@external_qc_bp.route('/cadt', methods=['POST'])
+@comparison_qc_bp.route('/cadt', methods=['POST'])
 def continuous_azimuth_drift_test():
     """
     Perform Continuous Azimuth Drift Test (CADT)
@@ -84,7 +84,7 @@ def continuous_azimuth_drift_test():
     result = perform_cadt(data['in_run'], data['out_run'], data['average_running_speed'], data['ipm'])
     return jsonify(result)
 
-@external_qc_bp.route('/idt', methods=['POST'])
+@comparison_qc_bp.route('/idt', methods=['POST'])
 def inclination_difference_test():
     """
     Perform Inclination Difference Test (IDT)
@@ -124,7 +124,7 @@ def inclination_difference_test():
     result = perform_idt(data['survey1'], data['survey2'], max_stations)
     return jsonify(result)
 
-@external_qc_bp.route('/adt', methods=['POST'])
+@comparison_qc_bp.route('/adt', methods=['POST'])
 def azimuth_difference_test():
     """
     Perform Azimuth Difference Test (ADT)
@@ -164,7 +164,7 @@ def azimuth_difference_test():
     result = perform_adt(data['survey1'], data['survey2'], max_stations)
     return jsonify(result)
 
-@external_qc_bp.route('/codt', methods=['POST'])
+@comparison_qc_bp.route('/codt', methods=['POST'])
 def coordinate_difference_test():
     """
     Perform Co-ordinate Difference Test (CODT)
