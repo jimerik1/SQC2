@@ -1,0 +1,40 @@
+#ShortName:UNKNOWN
+#Description:OWSG UNKNOWN
+#Remarks:It is based on the worst of the known survey tool error models.^~Rev 0.1 05-Jun-2013 Draft Release for Comment
+#ToolGroup:3
+#ToolType:0
+#Correlate:0
+#SingleShot:0
+#CostPerRun:0
+#CostPerLength:0
+#RunningSpeed:0
+#RevisionNumber:1
+#RevisionDate:01/11/2013 00:00
+#RevisionComment:Initial Release
+#SourceReference:Copsegrove Developments Ltd
+#ToolApplication:For use when survey data exists at any interval not exceeding 200ft but the origin or legacy quality of the data is unknown.
+#CurrentStatus:Agreed
+#ReplacesTool:None /
+#InclinationRangeMin:0
+#InclinationRangeMax:180
+#AzimuthEWRestriction:0
+#RangeComment:None
+#ToolParameters:A029Ua
+#UtilityToolType:Unknown
+#MagneticCorrectionType:
+#DepthReferenceType:
+#GyroToolType:
+#GyroContractorType:
+#MagneticToolType:
+#MagneticReferenceType:
+#InclinationToolType:
+#ChecksumValue:-2013543672
+#Name	Vector	Tie-On	Unit	Value	Formula
+drfr	e	r	m	0.35	1.0
+drfr	s	r	m	2.2	1.0
+drfs	s	s	m	1	1.0
+dsfs	e	s	-	0.00056	tmd
+dstg	e	g	im	2.5e-007	tmd*tvd
+azis	a	s	d	3	1.0
+cni	i	s	-	0.02	1.0
+cna	l	s	-	0.02	1.0

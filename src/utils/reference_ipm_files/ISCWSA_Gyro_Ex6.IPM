@@ -1,0 +1,63 @@
+#ShortName:ISCWSA_Gyro_Ex6
+#Description:ISCWSA Stationary 3-Axis Gyro - Example #6 (Fixed
+#Remarks:None^~Rev 0.1 05-Jun-2013 Draft Release for Comment
+#ToolGroup:2
+#ToolType:0
+#Correlate:0
+#SingleShot:0
+#CostPerRun:0
+#CostPerLength:0
+#RunningSpeed:0
+#RevisionNumber:0.1
+#RevisionDate:05/06/2013 00:00
+#RevisionComment:Draft Release for Comment
+#SourceReference:SPE 90408
+#ToolApplication:Gyro Model Template
+#CurrentStatus:Agreed
+#ReplacesTool:None /
+#InclinationRangeMin:0
+#InclinationRangeMax:180
+#AzimuthEWRestriction:0
+#RangeComment:None
+#ToolParameters:D006Ga
+#UtilityToolType:
+#MagneticCorrectionType:
+#DepthReferenceType:
+#GyroToolType:Gyro Compass
+#GyroContractorType:Other
+#MagneticToolType:
+#MagneticReferenceType:
+#InclinationToolType:
+#ChecksumValue:0
+#Name	Vector	Tie-On	Unit	Value	Formula
+warn	n	n	-	1	DO NOT USE THIS TOOL IN COMPASS
+drfr	e	r	m	0.5	1
+drfs	e	s	m	0.5	1
+dsfw	e	w	-	0.001	tmd
+dstg	e	g	im	5e-007	tmd*tvd
+w_12	n	n	-	1	sin(inc)
+w_34	n	n	-	1	sqrt(1-(w_12)^2)
+xym1	i	s	d	0.1	w_12
+xym2	l	s	d	0.1	w_12
+xym3	i	s	d	0.2	cos(azi)*w_34
+xym3	l	s	d	0.2	-sin(azi)*w_34
+xym4	i	s	d	0.2	sin(azi)*w_34
+xym4	l	s	d	0.2	cos(azi)*w_34
+vsag	i	s	d	0.1	sin(inc)
+axyz-mis	i	s	d	0.05	1
+axyz-sf	i	s	-	0.0005	1.3*sin(inc)/cos(inc)
+axyz-xyb	i	s	-	0.005	cos(inc)/gtot
+axyz-zb	i	s	-	0.005	sin(inc)/gtot
+gxyz-mis	a	s	d	0.05	1/cos(lat)
+gxyz-sf	a	s	-	0.001	tan(abs(lat))*sin(azt)*sin(inc)*cos(inc)
+gxyz-xyb1	a	s	d	0.1	sin(azt)*cos(inc)/erot
+gxyz-xyb2	a	s	d	0.1	cos(azt)/erot
+gxyz-xyg1	a	s	d	0.5	cos(azt)*sin(inc)/erot
+gxyz-xyg2	a	s	d	0.5	cos(azt)*cos(inc)/erot
+gxyz-xyg3	a	s	d	0.5	sin(azt)*cos(inc)^2/erot
+gxyz-xyg4	a	s	d	0.5	sin(azt)*sin(inc)*cos(inc)/erot
+gxyz-xyrn	a	r	d	0.1	sqrt(1-sin(azt)^2*sin(inc)^2)/erot
+gxyz-zb	a	s	d	0.1	sin(azt)*sin(inc)/erot
+gxyz-zg1	a	s	d	0.5	sin(azt)*sin(inc)^2/erot
+gxyz-zg2	a	s	d	0.5	sin(azt)*cos(inc)*sin(inc)/erot
+gxyz-zrn	a	r	d	0.1	sin(azt)*sin(inc)/erot

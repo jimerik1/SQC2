@@ -1,22 +1,46 @@
-def get_error_term_value(ipm_data, term_name, error_type, sigma_type):
+def get_error_term_value(ipm_data, term_name, error_type="e", tie_on="s", default=0.0):
     """
-    Get error term value from IPM data
+    Enhanced error term value retrieval with better fallbacks
     
     Args:
-        ipm_data (IPMFile): IPM data containing error terms
-        term_name (str): Name of the error term (e.g. 'MBX')
-        error_type (str): Type of error ('e' for error, 's' for sigma)
-        sigma_type (str): Type of sigma ('s' for systematic, 'r' for random)
-        
-    Returns:
-        float: Error term value
+        ipm_data: IPM data or raw content
+        term_name: Name of the error term (e.g. 'MBX')
+        error_type: Type of error ('e' for error, 's' for sigma)
+        tie_on: Tie-on value ('s' for systematic, 'r' for random)
+        default: Default value if term not found
     """
-    if isinstance(ipm_data, str):
-        from .ipm_parser import parse_ipm_file
-        ipm_data = parse_ipm_file(ipm_data)
+    try:
+        # Parse IPM if needed
+        if isinstance(ipm_data, str):
+            from .ipm_parser import parse_ipm_file
+            ipm_data = parse_ipm_file(ipm_data)
+        
+        # Try variations of the term name
+        variations = [
+            term_name,
+            term_name.upper(),
+            term_name.lower(),
+            term_name.replace('-', '_'),
+            term_name.replace('_', '-')
+        ]
+        
+        # Try each variation
+        for name in variations:
+            term = ipm_data.get_error_term(name, error_type, tie_on)
+            if term and "value" in term:
+                return term["value"]
+        
+        # Look for alternative formats (e.g., ABXY-TI1S vs ABXY_TI1)
+        if "-TI" in term_name:
+            base = term_name.split("-TI")[0]
+            alt_name = f"{base}_TI1"
+            term = ipm_data.get_error_term(alt_name, error_type, tie_on)
+            if term and "value" in term:
+                return term["value"]
+        
+        # Not found after all attempts
+        return default
     
-    # Use the get_error_term method from IPMFile
-    error_term = ipm_data.get_error_term(term_name, error_type, sigma_type)
-    
-    # Return the value if found, otherwise return 0.0
-    return error_term['value'] if error_term else 0.0
+    except Exception as e:
+        # Log error and return default
+        return default

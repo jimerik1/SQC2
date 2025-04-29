@@ -1,0 +1,34 @@
+#ShortName:ZERO-ERROR
+#Description:OWSG Zero Error
+#Remarks:To give zero position uncertainty down to a particular depth.^~Rev 0.1 05-Jun-2013 Draft Release for Comment
+#ToolGroup:3
+#ToolType:0
+#Correlate:0
+#SingleShot:0
+#CostPerRun:0
+#CostPerLength:1
+#RunningSpeed:0
+#RevisionNumber:1
+#RevisionDate:01/11/2013 00:00
+#RevisionComment:Initial Release
+#SourceReference:Copsegrove Developments Ltd
+#ToolApplication:To give zero position uncertainty down to a particular depth.
+#CurrentStatus:Agreed
+#ReplacesTool:None /
+#InclinationRangeMin:0
+#InclinationRangeMax:180
+#AzimuthEWRestriction:0
+#RangeComment:None
+#ToolParameters:A030Ua
+#UtilityToolType:Zero Error
+#MagneticCorrectionType:
+#DepthReferenceType:
+#GyroToolType:
+#GyroContractorType:
+#MagneticToolType:
+#MagneticReferenceType:
+#InclinationToolType:
+#ChecksumValue:-1832676177
+#Name	Vector	Tie-On	Unit	Value	Formula
+cni	i	s	d	0	dmd/mtf
+cna	l	s	d	0	dmd/mtf
