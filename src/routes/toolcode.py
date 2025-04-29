@@ -15,14 +15,17 @@ def parse_ipm():
     try:
         ipm = parse_ipm_file(data['ipm_content'])
         
-        return jsonify({
-            'short_name': ipm.short_name,
-            'description': ipm.description,
+        # Create a response using the to_dict() method but handle missing attributes
+        response = {
+            'short_name': getattr(ipm, 'short_name', ""),
+            'description': getattr(ipm, 'description', ""),
             'error_terms': ipm.error_terms
-        })
+        }
+        
+        return jsonify(response)
     except Exception as e:
         return jsonify({'error': f'Failed to parse IPM file: {str(e)}'}), 400
-
+    
 @toolcode_bp.route('/error-term', methods=['POST'])
 def get_error_term():
     """Get a specific error term from an IPM file"""

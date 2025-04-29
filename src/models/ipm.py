@@ -158,3 +158,12 @@ class IPMFile:
 def parse_ipm_file(content: str | Path) -> IPMFile:
     """Thin wrapper used elsewhere in the code base."""
     return IPMFile(content)
+
+# --------------------------------------------------------------------------- #
+#  Dictionary-like get method for compatibility
+# --------------------------------------------------------------------------- #
+def get(self, name, default=None):
+    """Dictionary-like get method for compatibility"""
+    # Implementation depends on what data structure this method should access
+    # This is just a placeholder example
+    return getattr(self, name, default)
