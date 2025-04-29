@@ -1,3 +1,5 @@
+from pathlib import Path            # ← add this
+
 class IPMFile:
     def __init__(self, content: str | Path):
         self.error_terms = []

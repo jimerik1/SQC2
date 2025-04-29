@@ -98,43 +98,49 @@ def perform_mse(surveys, ipm_data):
         ep_out[name]={
             'value':float(val),'std_dev':float(std),
             't_statistic':float(t),
-            'significant': False if np.isnan(t) else t>2,
-            'within_tolerance':True if tol[name] is None else abs(val)<=tol[name]
+            'significant': bool(False if np.isnan(t) else t>2),
+            'within_tolerance':bool(True if tol[name] is None else abs(val)<=tol[name])
         }
 
     ok_params=all(v['within_tolerance'] for v in ep_out.values() if not np.isnan(v['std_dev']))
-    valid=converged and ok_params and max_corr<=0.4
+    valid=bool(converged and ok_params and max_corr<=0.4)
 
     corrected=[]
     for i in range(ns):
         inc,az,tf=np.degrees(x[i*3:i*3+3])%360
         corrected.append({**surveys[i],
-            'inclination':inc,'azimuth':az,'toolface':tf})
+            'inclination':float(inc),'azimuth':float(az),'toolface':float(tf)})
 
-    out=QCResult("MSE").to_dict()  # simple wrapper for uniformity
-    out.update({
-        'is_valid':valid,
-        'error_parameters':ep_out,
-        'corrected_surveys':corrected,
-        'correlations':corr.tolist(),
-        'statistics':{
-            'max_correlation':float(max_corr),
-            'converged':converged,
-            'iterations':it+1,
-            'final_residual_norm':float(np.linalg.norm(res))
+    # Use our helper function to create serializable result
+    result = {
+        'test_name': "MSE",
+        'is_valid': bool(valid),
+        'error_parameters': _convert_numpy_types(ep_out),
+        'corrected_surveys': _convert_numpy_types(corrected),
+        'correlations': _convert_numpy_types(corr.tolist()),
+        'statistics': {
+            'max_correlation': float(max_corr),
+            'converged': bool(converged),
+            'iterations': int(it+1),
+            'final_residual_norm': float(np.linalg.norm(res))
         },
-        'details':{
-            'geometry_quality':geom,
-            'inclination_variation':inc_var,
-            'azimuth_variation':azi_var,
-            'quadrant_distribution':quad_hits
+        'details': {
+            'geometry_quality': geom,
+            'inclination_variation': float(inc_var),
+            'azimuth_variation': float(azi_var),
+            'quadrant_distribution': [int(q) for q in quad_hits]
         }
-    })
+    }
+    
     if not valid:
-        if max_corr>0.4: out['details']['failure_reason']="High parameter correlations"
-        elif not ok_params: out['details']['failure_reason']="Error parameter outside tolerance"
-        else: out['details']['failure_reason']="Estimation did not converge"
-    return out
+        if max_corr > 0.4: 
+            result['details']['failure_reason'] = "High parameter correlations"
+        elif not ok_params: 
+            result['details']['failure_reason'] = "Error parameter outside tolerance"
+        else: 
+            result['details']['failure_reason'] = "Estimation did not converge"
+    
+    return result
 
 
 # --------------------------------------------------------------------------- #
@@ -175,6 +181,22 @@ def _jacobian(x,geo,grav,ns,pnames):
     return J
 
 def _fail(msg,extra=None):
-    res={'is_valid':False,'error':msg}
-    if extra: res['details']=extra
+    res={'is_valid':False,'error':str(msg)}
+    if extra: 
+        res['details'] = _convert_numpy_types(extra)
     return res
+
+def _convert_numpy_types(obj):
+    """Convert numpy types to Python native types for JSON serialization"""
+    if isinstance(obj, (np.integer, np.int32, np.int64)):
+        return int(obj)
+    elif isinstance(obj, (np.floating, np.float32, np.float64)):
+        return float(obj)
+    elif isinstance(obj, (np.ndarray, list)):
+        return [_convert_numpy_types(i) for i in obj]
+    elif isinstance(obj, (np.bool_, bool)):
+        return bool(obj)
+    elif isinstance(obj, dict):
+        return {k: _convert_numpy_types(v) for k, v in obj.items()}
+    else:
+        return obj

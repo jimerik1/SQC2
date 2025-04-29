@@ -1,7 +1,8 @@
 import hashlib
 from functools import lru_cache
 from typing import Union, Optional
-from src.models.ipm import IPMFile, parse_ipm_file
+from src.models.ipm import IPMFile
+from src.utils.ipm_parser import parse_ipm_file
 
 def _hash(text: str) -> str:
     """Return a 40-char SHA-1 hex digest."""

@@ -1,4 +1,7 @@
 # models/qc_result.py
+
+import numpy as np
+
 class QCResult:
     """Class representing the result of a QC test"""
     
@@ -42,13 +45,29 @@ class QCResult:
         return self
     
     def to_dict(self):
-        """Convert the result to a dictionary"""
+        """Convert the result to a dictionary with Python native types"""
+        # Helper function to convert numpy types to Python native types
+        def convert_numpy(obj):
+            if isinstance(obj, (np.integer, np.int32, np.int64)):
+                return int(obj)
+            elif isinstance(obj, (np.floating, np.float32, np.float64)):
+                return float(obj)
+            elif isinstance(obj, (np.ndarray, list)):
+                return [convert_numpy(i) for i in obj]
+            elif isinstance(obj, (np.bool_, bool)):
+                return bool(obj)
+            elif isinstance(obj, dict):
+                return {k: convert_numpy(v) for k, v in obj.items()}
+            else:
+                return obj
+        
+        # Convert all values to Python native types
         return {
             'test_name': self.test_name,
-            'is_valid': self.is_valid,
-            'measurements': self.measurements,
-            'theoretical_values': self.theoretical_values,
-            'errors': self.errors,
-            'tolerances': self.tolerances,
-            'details': self.details
+            'is_valid': bool(self.is_valid),  # Ensure it's a Python boolean
+            'measurements': convert_numpy(self.measurements),
+            'theoretical_values': convert_numpy(self.theoretical_values),
+            'errors': convert_numpy(self.errors),
+            'tolerances': convert_numpy(self.tolerances),
+            'details': convert_numpy(self.details)
         }
