@@ -1,10 +1,10 @@
 # src/routes/external_qc/comparison.py
 from flask import Blueprint, request, jsonify
-from src.calculators.external_qc_tests.iomt import perform_iomt
-from src.calculators.external_qc_tests.cadt import perform_cadt
-from src.calculators.external_qc_tests.idt import perform_idt
-from src.calculators.external_qc_tests.adt import perform_adt
-from src.calculators.external_qc_tests.codt import perform_codt
+from src.calculators.comparison_tests.iomt import perform_iomt
+from src.calculators.comparison_tests.cadt import perform_cadt
+from src.calculators.comparison_tests.idt import perform_idt
+from src.calculators.comparison_tests.adt import perform_adt
+from src.calculators.comparison_tests.codt import perform_codt
 
 external_qc_bp = Blueprint('external_qc', __name__)
 
