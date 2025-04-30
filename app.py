@@ -8,6 +8,7 @@ from src.routes.internal_qc.measurement import measurement_bp
 from src.routes.toolcode import toolcode_bp
 from src.routes.recommendations import recommendations_bp
 
+
 def create_app(config_name=None):
     app = Flask(__name__)
     

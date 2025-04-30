@@ -46,8 +46,8 @@ def perform_get(survey: dict, ipm_data, theoretical_gravity: float):
         raise ValueError("GET needs 'expected_gravity' or explicit argument.")
 
     g_error = measured_g - g_theoretical
-    tol     = _get_tolerance(ipm_data, inc, tf, g_theoretical)
-    is_ok   = abs(g_error) <= tol
+    tol, debug_ipm_terms = _get_tolerance(ipm_data, inc, tf, g_theoretical)
+    is_ok = abs(g_error) <= tol
 
     # ---------- QCResult ---------------------------------------------------- #
     res = QCResult("GET")
@@ -58,7 +58,8 @@ def perform_get(survey: dict, ipm_data, theoretical_gravity: float):
         .add_tolerance("gravity", tol)
         .add_detail("inclination", inc)
         .add_detail("toolface", tf)
-        .add_detail("weighting_functions", _weighting_functions(inc, tf)))
+        .add_detail("weighting_functions", _weighting_functions(inc, tf))
+        .add_detail("debug_ipm_terms", debug_ipm_terms))  # Add debug info to response
 
     if inc < INC_WARN_LOW or inc > INC_WARN_HIGH:
         _add_warning(
@@ -92,16 +93,29 @@ def _get_error_term_value(ipm, name, vector="", tie_on=""):
 def _get_tolerance(ipm_data, inc_deg: float, tf_deg: float, gt: float) -> float:
     """3-σ gravity-error tolerance δG (Eq. 3, Appendix 1 A)."""
     ipm = parse_ipm_file(ipm_data) if isinstance(ipm_data, str) else ipm_data
-    w   = _weighting_functions(inc_deg, tf_deg)
+    w = _weighting_functions(inc_deg, tf_deg)
 
+    # Debug collection - store found error terms
+    debug_terms = {}
+    
     # 1-σ sigmas
     abx = _get_error_term_value(ipm, "ABXY-TI1S", "e", "s")
+    debug_terms["ABXY-TI1S (e,s) - X axis bias"] = abx
+    
     aby = _get_error_term_value(ipm, "ABXY-TI1S", "e", "s")
-    abz = _get_error_term_value(ipm, "ABZ",        "e", "s")
+    debug_terms["ABXY-TI1S (e,s) - Y axis bias"] = aby
+    
+    abz = _get_error_term_value(ipm, "ABZ", "e", "s")
+    debug_terms["ABZ (e,s) - Z axis bias"] = abz
 
     asx = _get_error_term_value(ipm, "ASXY-TI1S", "e", "s")
+    debug_terms["ASXY-TI1S (e,s) - X axis scale"] = asx
+    
     asy = _get_error_term_value(ipm, "ASXY-TI1S", "e", "s")
-    asz = _get_error_term_value(ipm, "ASZ",        "e", "s")
+    debug_terms["ASXY-TI1S (e,s) - Y axis scale"] = asy
+    
+    asz = _get_error_term_value(ipm, "ASZ", "e", "s")
+    debug_terms["ASZ (e,s) - Z axis scale"] = asz
 
     var = (
         (abx * w["wx"])**2 +
@@ -111,8 +125,19 @@ def _get_tolerance(ipm_data, inc_deg: float, tf_deg: float, gt: float) -> float:
         (2 * asy * w["wy"] * gt)**2 +
         (2 * asz * w["wz"] * gt)**2
     )
-    return 3.0 * math.sqrt(var)
-
+    
+    # Calculate weighted contribution of each term for debugging
+    debug_terms["weighted_contributions"] = {
+        "abx": (abx * w["wx"])**2,
+        "aby": (aby * w["wy"])**2,
+        "abz": (abz * w["wz"])**2,
+        "asx": (2 * asx * w["wx"] * gt)**2,
+        "asy": (2 * asy * w["wy"] * gt)**2,
+        "asz": (2 * asz * w["wz"] * gt)**2
+    }
+    
+    tolerance = 3.0 * math.sqrt(var)
+    return tolerance, debug_terms
 
 def _add_warning(res: QCResult, code: str, msg: str):
     warn = res.details.get("warnings", [])
