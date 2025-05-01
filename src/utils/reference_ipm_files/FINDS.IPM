@@ -1,0 +1,35 @@
+#ShortName:FINDS
+#Description:OWSG BHI Ferranti FINDS
+#Remarks:Gives 1/1000 MD Lateral Radial and Vertical uncertainty^~Rev 0.1 05-Jun-2013 Draft Release for Comment
+#ToolGroup:4
+#ToolType:0
+#Correlate:0
+#SingleShot:0
+#CostPerRun:0
+#CostPerLength:0
+#RunningSpeed:0
+#RevisionNumber:1
+#RevisionDate:01/11/2013 00:00
+#RevisionComment:Initial Release
+#SourceReference:Copsegrove Developments Ltd
+#ToolApplication:Ferranti FINDS Inertial Surveys
+#CurrentStatus:Agreed
+#ReplacesTool:None /
+#InclinationRangeMin:0
+#InclinationRangeMax:180
+#AzimuthEWRestriction:0
+#RangeComment:None
+#ToolParameters:B021Ga
+#UtilityToolType:
+#MagneticCorrectionType:
+#DepthReferenceType:
+#GyroToolType:
+#GyroContractorType:
+#MagneticToolType:
+#MagneticReferenceType:
+#InclinationToolType:
+#ChecksumValue:-829100899
+#Name	Vector	Tie-On	Unit	Value	Formula
+dsfs	e	s	-	0.001	tmd
+cni	i	s	-	0.001	1.0
+cna	l	s	-	0.001	1.0

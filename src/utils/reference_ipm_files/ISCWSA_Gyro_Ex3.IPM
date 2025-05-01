@@ -1,0 +1,76 @@
+#ShortName:ISCWSA_Gyro_Ex3
+#Description:ISCWSA XYZ Accel with XY Static and Continuous Gyr
+#Remarks:None^~Rev 0.1 05-Jun-2013 Draft Release for Comment
+#ToolGroup:2
+#ToolType:0
+#Correlate:0
+#SingleShot:0
+#CostPerRun:0
+#CostPerLength:0
+#RunningSpeed:0
+#RevisionNumber:0.1
+#RevisionDate:05/06/2013 00:00
+#RevisionComment:Draft Release for Comment
+#SourceReference:SPE 90408
+#ToolApplication:Gyro Model Template
+#CurrentStatus:Agreed
+#ReplacesTool:None /
+#InclinationRangeMin:0
+#InclinationRangeMax:180
+#AzimuthEWRestriction:0
+#RangeComment:None
+#ToolParameters:D003Ga
+#UtilityToolType:
+#MagneticCorrectionType:
+#DepthReferenceType:
+#GyroToolType:Continuous
+#GyroContractorType:Other
+#MagneticToolType:
+#MagneticReferenceType:
+#InclinationToolType:
+#ChecksumValue:0
+#Name	Vector	Tie-On	Unit	Value	Formula
+warn	n	n	-	1	DO NOT USE THIS TOOL IN COMPASS
+drfr	e	r	m	0.5	1
+drfs	e	s	m	0.5	1
+dsfw	e	w	-	0.001	tmd
+dstg	e	g	im	5e-007	tmd*tvd
+w_12	n	n	-	1	sin(inc)
+w_34	n	n	-	1	sqrt(1-(w_12)^2)
+xym1	i	s	d	0.1	w_12
+xym2	l	s	d	0.1	w_12
+xym3	i	s	d	0.2	cos(azi)*w_34
+xym3	l	s	d	0.2	-sin(azi)*w_34
+xym4	i	s	d	0.2	sin(azi)*w_34
+xym4	l	s	d	0.2	cos(azi)*w_34
+vsag	i	s	d	0.1	sin(inc)
+axyz-mis	i	s	d	0.05	1
+axyz-sf	i	s	-	0.0005	1.3*sin(inc)/cos(inc)
+axyz-xyb	i	s	-	0.005	cos(inc)/gtot
+axyz-zb	i	s	-	0.005	sin(inc)/gtot
+nxygb1	n	n	-	1	sin(azt)/(erot*cos(inc))	0	17
+nxygb2	n	n	-	1	cos(azt)/erot	0	17
+nxygrn	n	n	-	1	sqrt(1-(cos(azt)^2)*(sin(inc)^2))/(erot*cos(inc))	0	17
+nxyggd1	n	n	-	1	cos(azt)*sin(inc)/erot	0	17
+nxyggd2	n	n	-	1	cos(azt)*cos(inc)/erot	0	17
+nxyggd3	n	n	-	1	sin(azt)/erot	0	17
+nxyggd4	n	n	-	1	sin(azt)*sin(inc)/cos(inc)/erot	0	17
+ngmis	n	n	-	1	1/(cos(lat)*cos(inc))	0	17
+ngsfe	n	n	-	1	tan(lat)*sin(azt)*sin(inc)/cos(inc)	0	17
+gxy-b1	a	s	d	0.1	nxygb1
+gxy-b2	a	s	d	0.1	nxygb2
+gxy-rn	a	r	d	0.1	nxygrn	0	17
+gxy-rn	a	s	d	0.1	0.5*nxygrn	17.001	150
+gxy-g1	a	s	d	0.5	nxyggd1
+gxy-g2	a	s	d	0.5	nxyggd2
+gxy-g3	a	s	d	0.5	nxyggd3
+gxy-g4	a	s	d	0.5	nxyggd4
+gxy-mis	a	s	d	0.05	ngmis
+gxy-sf	a	s	-	0.001	ngsfe
+runsp	n	n	m	1	2160
+dmgdxy	n	n	-	1	dmgdxy+smd/sin(inc-0.5*din)	17.001	150
+dmrwxy	n	n	-	1	dmrwxy+smd/((sin(inc-0.5*din))^2)	17.001	150
+dmgdxy	n	n	-	1	0	0	17
+dmrwxy	n	n	-	1	0	0	17
+gxy-gd	a	s	d	0.5	dmgdxy/runsp	17	150
+gxy-grw	a	s	d	0.5	sqrt(dmrwxy/runsp)	17	150
