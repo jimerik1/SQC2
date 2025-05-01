@@ -7,6 +7,7 @@ from src.routes.comparison_qc.comparison import comparison_qc_bp
 from src.routes.internal_qc.measurement import measurement_bp
 from src.routes.toolcode import toolcode_bp
 from src.routes.recommendations import recommendations_bp
+from src.routes.synthetic_data import synthetic_data_bp
 
 
 def create_app(config_name=None):
