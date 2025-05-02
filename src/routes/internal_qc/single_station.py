@@ -19,10 +19,11 @@ def gravity_error_test():
             "accelerometer_x": float,  # g units
             "accelerometer_y": float,  # g units
             "accelerometer_z": float,  # g units
-            "inclination": float,      # degrees
-            "toolface": float,         # degrees
+            "inclination": float,      # degrees (optional)
+            "toolface": float,         # degrees (optional)
             "depth": float,            # meters
-            "expected_gravity": float  # g units (from EGM2008 API)
+            "expected_gravity": float, # g units (from EGM2008 API)
+            "azimuth": float           # degrees (optional, for enhanced warnings)
         },
         "ipm": string or object        # IPM file content or parsed object
     }
@@ -31,7 +32,7 @@ def gravity_error_test():
     
     # Validate required inputs
     required_fields = ['accelerometer_x', 'accelerometer_y', 'accelerometer_z', 
-                      'inclination', 'toolface', 'depth', 'expected_gravity']
+                      'depth', 'expected_gravity']
     
     for field in required_fields:
         if field not in data['survey']:
