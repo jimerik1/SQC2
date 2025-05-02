@@ -56,11 +56,7 @@ def total_field_dip_test():
             "accelerometer_x": float,  # g units
             "accelerometer_y": float,  # g units
             "accelerometer_z": float,  # g units
-            "inclination": float,      # degrees
-            "toolface": float,         # degrees
-            "longitude": float,        # degrees
-            "latitude": float,         # degrees
-            "depth": float,            # meters
+            "latitude": float,         # degrees (optional, used for warnings only)
             "expected_geomagnetic_field": {
                 "total_field": float,   # nT
                 "dip": float,           # degrees
@@ -74,8 +70,7 @@ def total_field_dip_test():
     
     # Validate required inputs
     required_fields = ['mag_x', 'mag_y', 'mag_z', 'accelerometer_x', 'accelerometer_y', 
-                      'accelerometer_z', 'inclination', 'toolface', 'longitude', 
-                      'latitude', 'depth', 'expected_geomagnetic_field']
+                      'accelerometer_z', 'expected_geomagnetic_field']
     
     for field in required_fields:
         if field not in data['survey']:
@@ -86,6 +81,10 @@ def total_field_dip_test():
     for field in geo_fields:
         if field not in data['survey']['expected_geomagnetic_field']:
             return jsonify({'error': f'Missing required field in expected_geomagnetic_field: {field}'}), 400
+    
+    # Add default latitude if not provided
+    if 'latitude' not in data['survey']:
+        data['survey']['latitude'] = 0.0  # Default value, no high-latitude warnings will be triggered
     
     result = perform_tfdt(data['survey'], data['ipm'])
     return jsonify(result)
