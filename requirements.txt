@@ -10,3 +10,7 @@ scipy>=1.11,<2.0         # scientific computing
 # ─── Dev / test extras ────────────────────────
 pytest>=7.4,<8.0
 # black>=24.3,<25.0
+
+# ─── Numba for speedup ─────────────────────────────────────────────────────────────
+numba>=0.59
+llvmlite>=0.43

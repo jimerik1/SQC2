@@ -8,7 +8,7 @@ from src.routes.internal_qc.measurement import measurement_bp
 from src.routes.toolcode import toolcode_bp
 from src.routes.recommendations import recommendations_bp
 from src.routes.synthetic_data import synthetic_data_bp, parse_bp
-
+from src.routes.corrections.corrections import corrections_bp
 
 
 def create_app(config_name=None):
@@ -40,6 +40,8 @@ def create_app(config_name=None):
     # Register parse blueprint
     app.register_blueprint(parse_bp, url_prefix='/api/v1/parse')
 
+    # Register corrections blueprint
+    app.register_blueprint(corrections_bp, url_prefix='/api/v1/corrections')  
 
     
     @app.route('/healthz', methods=['GET'])
