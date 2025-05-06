@@ -34,14 +34,14 @@ TF_OPTIMAL = [(45, 15), (135, 15), (225, 15), (315, 15)]  # (center, +/- range)
 # --------------------------------------------------------------------------- #
 #  Public API
 # --------------------------------------------------------------------------- #
-def perform_get(survey: dict, ipm_data, theoretical_gravity: float):
+def perform_get(survey: dict, ipm_data, theoretical_gravity: float, sigma: float = 3.0):
     # ---------- required sensor data --------------------------------------- #
-    acc_x = survey["accelerometer_x"]
-    acc_y = survey["accelerometer_y"]
-    acc_z = survey["accelerometer_z"]
+    acc_x = survey["accelerometer_x"] # m/s²
+    acc_y = survey["accelerometer_y"] # m/s²
+    acc_z = survey["accelerometer_z"] # m/s²
     
     # Calculate gravity magnitude
-    measured_g = math.sqrt(acc_x**2 + acc_y**2 + acc_z**2)
+    measured_g = math.sqrt(acc_x**2 + acc_y**2 + acc_z**2)  # m/s²
     
     # Calculate inclination from accelerometer readings
     calc_inc = math.degrees(math.acos(min(max(acc_z / measured_g, -1.0), 1.0)))
@@ -72,11 +72,13 @@ def perform_get(survey: dict, ipm_data, theoretical_gravity: float):
         tf_discrepancy = min(tf_diff, 360 - tf_diff)
 
     g_theoretical = theoretical_gravity or survey.get("expected_gravity")
+
     if g_theoretical is None:
-        raise ValueError("GET needs 'expected_gravity' or explicit argument.")
+        raise ValueError("GET needs 'expected_gravity' in m/s² or explicit argument.")
+
 
     g_error = measured_g - g_theoretical
-    tol, debug_ipm_terms = _get_tolerance(ipm_data, inc, tf, g_theoretical)
+    tol, debug_ipm_terms = _get_tolerance(ipm_data, inc, tf, g_theoretical, sigma)
     is_ok = abs(g_error) <= tol
 
     # ---------- QCResult ---------------------------------------------------- #
@@ -173,46 +175,86 @@ def _weighting_functions(inclination_deg: float, toolface_deg: float):
     }
 
 
-def _get_error_term_value(ipm, name, vector="", tie_on=""):
-    """Return the error-term value (1 σ). 0.0 if term absent."""
-    term = ipm.get_error_term(name, vector, tie_on)
-    return term["value"] if term else 0.0
+def _get_error_term_value(ipm, name, vec, tie_on, inc_deg=None,
+                          az_deg=None, gt=None):
+    term = ipm.get_error_term(name, vec, tie_on)
+    if not term:
+        return 0.0
+
+    sigma = term["value"]            # already in m/s²
+    formula = term.get("formula", "").strip()
+    if formula and inc_deg is not None:
+        # minimal sandbox for eval – only the symbols that appear in OWSG formulas
+        env = {
+            "inc": math.radians(inc_deg),
+            "azm": math.radians(az_deg) if az_deg is not None else 0.0,
+            "dip": 0.0,
+            "gtot": gt or 9.81,
+            # math helpers
+            "sin": math.sin, "cos": math.cos, "tan": math.tan,
+            "sqrt": math.sqrt, "abs": abs
+        }
+        try:
+            sigma *= abs(eval(formula, {"__builtins__": None}, env))
+        except Exception:
+            pass     # fall back to un‑scaled value if the eval fails
+    return sigma
 
 
-def _get_tolerance(ipm_data, inc_deg: float, tf_deg: float, gt: float):
+def _get_tolerance(ipm_data, inc_deg: float, tf_deg: float, gt: float, sigma: float = 3.0):
     """3-σ gravity-error tolerance δG (Eq. 3, Appendix 1 A)."""
     ipm = parse_ipm_file(ipm_data) if isinstance(ipm_data, str) else ipm_data
     w = _weighting_functions(inc_deg, tf_deg)
+
 
     # Debug collection - store found error terms
     debug_terms = {}
     
     # 1-σ sigmas
-    abx = _get_error_term_value(ipm, "ABXY-TI1S", "e", "s")
-    debug_terms["ABXY-TI1S (e,s) - X axis bias"] = abx
-    
-    aby = _get_error_term_value(ipm, "ABXY-TI1S", "e", "s")
-    debug_terms["ABXY-TI1S (e,s) - Y axis bias"] = aby
-    
-    abz = _get_error_term_value(ipm, "ABZ", "e", "s")
-    debug_terms["ABZ (e,s) - Z axis bias"] = abz
+    # -----------------------------------------------------------------
+    # 1‑σ σ values in SI units (m s‑2 for biases, dimension‑less for scale)
+    # – choose “i,s” when the station is > 3.0° from vertical,
+    #   otherwise fall back to the conservative “e,s” row.
+    # -----------------------------------------------------------------
+    vec = "i" if inc_deg > 3.0 else "e"          # inclination‑dependent or constant
+    tie = "s"                                     # ‘single‑station’ rows only
 
-    asx = _get_error_term_value(ipm, "ASXY-TI1S", "e", "s")
-    debug_terms["ASXY-TI1S (e,s) - X axis scale"] = asx
-    
-    asy = _get_error_term_value(ipm, "ASXY-TI1S", "e", "s")
-    debug_terms["ASXY-TI1S (e,s) - Y axis scale"] = asy
-    
-    asz = _get_error_term_value(ipm, "ASZ", "e", "s")
-    debug_terms["ASZ (e,s) - Z axis scale"] = asz
+    # --- bias terms ---------------------------------------------------
+    abx = _get_error_term_value(ipm, "ABXY-TI1S", vec, tie,
+                                inc_deg=inc_deg, gt=gt)
+    debug_terms[f"ABXY-TI1S ({vec},{tie}) - X axis bias"] = abx
 
+    aby = _get_error_term_value(ipm, "ABXY-TI1S", vec, tie,
+                                inc_deg=inc_deg, gt=gt)
+    debug_terms[f"ABXY-TI1S ({vec},{tie}) - Y axis bias"] = aby
+
+    abz = _get_error_term_value(ipm, "ABZ", vec, tie,
+                                inc_deg=inc_deg, gt=gt)
+    debug_terms[f"ABZ ({vec},{tie}) - Z axis bias"] = abz
+
+    # --- scale‑factor terms -------------------------------------------
+    asx = _get_error_term_value(ipm, "ASXY-TI1S", vec, tie,
+                                inc_deg=inc_deg, gt=gt)
+    debug_terms[f"ASXY-TI1S ({vec},{tie}) - X axis scale"] = asx
+
+    asy = _get_error_term_value(ipm, "ASXY-TI1S", vec, tie,
+                                inc_deg=inc_deg, gt=gt)
+    debug_terms[f"ASXY-TI1S ({vec},{tie}) - Y axis scale"] = asy
+
+    asz = _get_error_term_value(ipm, "ASZ", vec, tie,
+                                inc_deg=inc_deg, gt=gt)
+    debug_terms[f"ASZ ({vec},{tie}) - Z axis scale"] = asz
+
+    wx2 = w["wx"] ** 2
+    wy2 = w["wy"] ** 2
+    wz2 = w["wz"] ** 2
     var = (
         (abx * w["wx"])**2 +
         (aby * w["wy"])**2 +
         (abz * w["wz"])**2 +
-        (2 * asx * w["wx"] * gt)**2 +
-        (2 * asy * w["wy"] * gt)**2 +
-        (2 * asz * w["wz"] * gt)**2
+        (asx * gt * wx2)**2 +
+        (asy * gt * wy2)**2 +
+        (asz * gt * wz2)**2
     )
     
     # Calculate weighted contribution of each term for debugging
@@ -225,7 +267,7 @@ def _get_tolerance(ipm_data, inc_deg: float, tf_deg: float, gt: float):
         "asz": (2 * asz * w["wz"] * gt)**2
     }
     
-    tolerance = 3.0 * math.sqrt(var)
+    tolerance = sigma * math.sqrt(var)
     return tolerance, debug_terms
 
 def _add_warning(res: QCResult, code: str, msg: str):

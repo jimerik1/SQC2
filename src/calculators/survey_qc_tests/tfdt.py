@@ -22,7 +22,7 @@ AZI_CARD_TOL   = 15.0   # ± deg around 0, 90, 180, 270
 LAT_WARN_ABS   = 60.0   # |latitude| deg
 
 # --------------------------------------------------------------------------- #
-def perform_tfdt(survey, ipm_data):
+def perform_tfdt(survey, ipm_data, sigma: float = 3.0):
     """Run TFDT for one station and return QCResult.to_dict()."""
     # ------------ extract -------------------------------------------------- #
     mag_x, mag_y, mag_z = survey["mag_x"], survey["mag_y"], survey["mag_z"]
@@ -72,7 +72,7 @@ def perform_tfdt(survey, ipm_data):
     dip_err   = meas_dip   - theo_dip
 
     # tolerances - get all three values returned now
-    field_tol, dip_tol, debug_ipm_terms = _tfdt_tolerances(ipm_data, inc, tf, theo_total, theo_dip)
+    field_tol, dip_tol, debug_ipm_terms = _tfdt_tolerances(ipm_data, inc, tf, theo_total, theo_dip, sigma)
 
     pass_field = abs(field_err) <= field_tol
     pass_dip   = abs(dip_err)   <= dip_tol
@@ -166,7 +166,7 @@ def _tfdt_weights(inc_deg, tf_deg, dip_deg):
 # --------------------------------------------------------------------------- #
 #  Tolerance calculator
 # --------------------------------------------------------------------------- #
-def _tfdt_tolerances(ipm_data, inc, tf, total_field, dip):
+def _tfdt_tolerances(ipm_data, inc, tf, total_field, dip, sigma: float = 3.0):
     ipm = parse_ipm_file(ipm_data) if isinstance(ipm_data, str) else ipm_data
     w = _tfdt_weights(inc, tf, dip)
 
@@ -266,12 +266,13 @@ def _tfdt_tolerances(ipm_data, inc, tf, total_field, dip):
     debug_terms["weighted_field_contributions"] = field_terms
     debug_terms["weighted_dip_contributions"] = dip_terms
 
-    field_tol = 3 * math.sqrt(sum(field_terms.values()))
-    dip_tol = 3 * math.sqrt(sum(dip_terms.values()))
+    field_tol = sigma * math.sqrt(sum(field_terms.values()))
+    dip_tol = sigma * math.sqrt(sum(dip_terms.values()))
     
     debug_terms["calculated_tolerances"] = {
         "field_tolerance": field_tol,
-        "dip_tolerance": dip_tol
+        "dip_tolerance": dip_tol,
+        "sigma": sigma
     }
     
     return field_tol, dip_tol, debug_terms

@@ -24,6 +24,7 @@ def gravity_error_test():
             "depth": float,            # meters
             "expected_gravity": float, # g units (from EGM2008 API)
             "azimuth": float           # degrees (optional, for enhanced warnings)
+            "sigma": float             # dimensionless (optional, for adjusted thresholds)
         },
         "ipm": string or object        # IPM file content or parsed object
     }
@@ -39,7 +40,11 @@ def gravity_error_test():
             return jsonify({'error': f'Missing required field: {field}'}), 400
     
     theory_g = data['survey']['expected_gravity']
-    result = perform_get(data['survey'], data['ipm'], theory_g)
+    
+    # Extract sigma value with default of 3.0 if not specified
+    sigma = data['survey'].get('sigma', 3.0)
+
+    result = perform_get(data['survey'], data['ipm'], theory_g, sigma)
     return jsonify(result)
 
 @single_station_bp.route('/tfdt', methods=['POST'])
@@ -57,6 +62,7 @@ def total_field_dip_test():
             "accelerometer_y": float,  # g units
             "accelerometer_z": float,  # g units
             "latitude": float,         # degrees (optional, used for warnings only)
+            "sigma": float,            # dimensionless (optional, for adjusted thresholds)
             "expected_geomagnetic_field": {
                 "total_field": float,   # nT
                 "dip": float,           # degrees
@@ -86,7 +92,11 @@ def total_field_dip_test():
     if 'latitude' not in data['survey']:
         data['survey']['latitude'] = 0.0  # Default value, no high-latitude warnings will be triggered
     
-    result = perform_tfdt(data['survey'], data['ipm'])
+    # Extract sigma value with default of 3.0 if not specified
+    sigma = data['survey'].get('sigma', 3.0)
+    
+    # Pass sigma to perform_tfdt
+    result = perform_tfdt(data['survey'], data['ipm'], sigma)
     return jsonify(result)
 
 @single_station_bp.route('/hert', methods=['POST'])
