@@ -121,14 +121,17 @@ def _hert_tolerance(ipm_data,
     """3 σ tolerance δΩ_h  (deg / hr)."""
     ipm = parse_ipm_file(ipm_data) if isinstance(ipm_data, str) else ipm_data
 
+    # If inclination is greater than 3 degrees, use the inclination vector, otherwise use the depth vector
+    vec = "i" if inclination_deg > 3.0 else "e"
+    
     # 1 σ sigmas
-    gbx = get_error_term_value(ipm, "GBX", "e", "s")
-    gby = get_error_term_value(ipm, "GBY", "e", "s")
-    gsx = get_error_term_value(ipm, "GSX", "e", "s")
-    gsy = get_error_term_value(ipm, "GSY", "e", "s")
-    m   = get_error_term_value(ipm, "M",   "e", "s")
-    q   = get_error_term_value(ipm, "Q",   "e", "s")
-    gr  = get_error_term_value(ipm, "GR",  "e", "s")
+    gbx = get_error_term_value(ipm, "GBX", vec, "s")
+    gby = get_error_term_value(ipm, "GBY", vec, "s")
+    gsx = get_error_term_value(ipm, "GSX", vec, "s")
+    gsy = get_error_term_value(ipm, "GSY", vec, "s")
+    m   = get_error_term_value(ipm, "M",   vec, "s")
+    q   = get_error_term_value(ipm, "Q",   vec, "s")
+    gr  = get_error_term_value(ipm, "GR",  vec, "s")
 
     w_gbx, w_gby = _hert_weights(inclination_deg, azimuth_deg)
     omega_cos_phi = EARTH_RATE_DPH * math.cos(math.radians(latitude_deg))

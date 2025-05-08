@@ -6,14 +6,23 @@ from src.utils.ipm_parser import parse_ipm_file
 from src.utils.tolerance import get_error_term_value
 from src.utils.linalg import safe_inverse
 
-def perform_msmt(surveys, ipm_data):
+def perform_msmt(surveys, ipm_data, sigma: float = 3.0):
     """
     Multi-Station Magnetometer Test (MSMT) – Ekseth et al., App. 1 F
     Each survey dict *must* include:
         mag_x / y / z         [nT]
-        accelerometer_x / y / z (g)
+        accelerometer_x / y / z [m/s²]
         inclination, azimuth, toolface [deg]  (toolface only used for sagged tools)
         expected_geomagnetic_field: { total_field [nT], dip [deg] }
+        
+    Parameters:
+    -----------
+    surveys : list
+        List of dictionaries containing survey data
+    ipm_data : str or object
+        IPM file content as string or parsed object
+    sigma : float, optional
+        Sigma multiplier for tolerances, default is 3.0
     """
     if len(surveys) < 10:
         return _fail("At least 10 survey stations are required for MSMT")
@@ -91,16 +100,40 @@ def perform_msmt(surveys, ipm_data):
     #   4. Tolerances from IPM
     # ------------------------------------------------------------------ #
     ipm = parse_ipm_file(ipm_data) if isinstance(ipm_data, str) else ipm_data
-    σ_mbx = get_error_term_value(ipm, 'MBX', 'e', 's')
-    σ_mby = get_error_term_value(ipm, 'MBY', 'e', 's')
-    σ_mbz = get_error_term_value(ipm, 'MBZ', 'e', 's')
-    σ_msx = get_error_term_value(ipm, 'MSX', 'e', 's')
-    σ_msy = get_error_term_value(ipm, 'MSY', 'e', 's')
-    σ_msz = get_error_term_value(ipm, 'MSZ', 'e', 's')
+    
+    # Try to get magnetometer terms with fallbacks for different naming conventions
+    σ_mbx = get_error_term_value(ipm, 'MBX', 'e', 's') or \
+            get_error_term_value(ipm, 'MBIX', 'e', 's') or \
+            get_error_term_value(ipm, 'MBXY-TI1S', 'e', 's') or \
+            get_error_term_value(ipm, 'MBIXY-TI1S', 'e', 's')
+    
+    σ_mby = get_error_term_value(ipm, 'MBY', 'e', 's') or \
+            get_error_term_value(ipm, 'MBIY', 'e', 's') or \
+            get_error_term_value(ipm, 'MBXY-TI1S', 'e', 's') or \
+            get_error_term_value(ipm, 'MBIXY-TI1S', 'e', 's')
+    
+    σ_mbz = get_error_term_value(ipm, 'MBZ', 'e', 's') or \
+            get_error_term_value(ipm, 'MBIZ', 'e', 's')
+    
+    σ_msx = get_error_term_value(ipm, 'MSX', 'e', 's') or \
+            get_error_term_value(ipm, 'MSIX', 'e', 's') or \
+            get_error_term_value(ipm, 'MSXY-TI1S', 'e', 's') or \
+            get_error_term_value(ipm, 'MSIXY-TI1S', 'e', 's')
+    
+    σ_msy = get_error_term_value(ipm, 'MSY', 'e', 's') or \
+            get_error_term_value(ipm, 'MSIY', 'e', 's') or \
+            get_error_term_value(ipm, 'MSXY-TI1S', 'e', 's') or \
+            get_error_term_value(ipm, 'MSIXY-TI1S', 'e', 's')
+    
+    σ_msz = get_error_term_value(ipm, 'MSZ', 'e', 's') or \
+            get_error_term_value(ipm, 'MSIZ', 'e', 's')
+    
     σ_mfi = get_error_term_value(ipm, 'MFI', 'e', 's')
     σ_mdi = get_error_term_value(ipm, 'MDI', 'e', 's')
 
-    param_tol = (3*σ_mbx, 3*σ_mby, 3*σ_mbz, 3*σ_msx, 3*σ_msy, 3*σ_msz)
+    # Apply sigma multiplier to tolerances
+    param_tol = (sigma*σ_mbx, sigma*σ_mby, sigma*σ_mbz, 
+                 sigma*σ_msx, sigma*σ_msy, sigma*σ_msz)
     params_valid = all(abs(p) <= t for p, t in zip(X, param_tol))
 
     # residual tolerances station-by-station
@@ -110,7 +143,7 @@ def perform_msmt(surveys, ipm_data):
         nx, ny, nz = [c/math.sqrt(sv['mag_x']**2 + sv['mag_y']**2 + sv['mag_z']**2)
                       for c in (sv['mag_x'], sv['mag_y'], sv['mag_z'])]
 
-        tf_tol = 3*math.sqrt(
+        tf_tol = sigma*math.sqrt(
             (σ_mbx*nx)**2 + (σ_mby*ny)**2 + (σ_mbz*nz)**2 +
             (2*σ_msx*nx*Bt)**2 + (2*σ_msy*ny*Bt)**2 + (2*σ_msz*nz*Bt)**2 +
             (σ_mfi*Bt)**2
@@ -130,7 +163,7 @@ def perform_msmt(surveys, ipm_data):
         wy = (ky*cosd - ny*sind) / cosd
         wz = (kz*cosd - nz*sind) / cosd
 
-        dp_tol = 3*math.sqrt(
+        dp_tol = sigma*math.sqrt(
             (σ_mbx*wx)**2 + (σ_mby*wy)**2 + (σ_mbz*wz)**2 +
             (2*σ_msx*wx*Bt)**2 + (2*σ_msy*wy*Bt)**2 + (2*σ_msz*wz*Bt)**2 +
             σ_mdi**2
@@ -157,6 +190,7 @@ def perform_msmt(surveys, ipm_data):
     r.add_detail("dip_tolerances",   [rt/Bt for rt, Bt in zip(res_tol[1::2], Bt_list)])
     r.add_detail("correlation_matrix", corr.tolist())
     r.add_detail("max_nondiagonal_correlation", float(max_corr))
+    r.add_detail("sigma", sigma)
 
     if not overall:
         if max_corr > 0.4:

@@ -9,8 +9,7 @@ Inputs
 ------
 survey               – dict with accelerometer_x/y/z, inclination (optional), toolface (optional)
 ipm_data             – raw IPM text *or* a parsed IPMFile instance
-theoretical_gravity  – local gravity [g-units].  If None, falls back to
-                       survey['expected_gravity'].
+theoretical_gravity  – local gravity [m/s2].  Sourced externally by gravity field models like EGM2008
 
 Output
 ------

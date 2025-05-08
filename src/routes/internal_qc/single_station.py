@@ -131,7 +131,9 @@ def horizontal_earth_rate_test():
         if field not in data['survey']:
             return jsonify({'error': f'Missing required field: {field}'}), 400
     
-    result = perform_hert(data['survey'], data['ipm'])
+    sigma = data['survey'].get('sigma', 3.0)
+
+    result = perform_hert(data['survey'], data['ipm'], sigma)
     return jsonify(result)
 
 @single_station_bp.route('/rsmt', methods=['POST'])

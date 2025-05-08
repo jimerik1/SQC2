@@ -10,6 +10,7 @@ from src.routes.recommendations import recommendations_bp
 from src.routes.synthetic_data import synthetic_data_bp, parse_bp
 from src.routes.corrections.corrections import corrections_bp
 from src.routes.survey_from_raw_data import survey_from_raw_data_bp
+from src.routes.survey_from_raw_gyro import survey_from_raw_gyro_bp
 
 
 def create_app(config_name=None):
@@ -46,6 +47,9 @@ def create_app(config_name=None):
     
     # Register survey from raw data blueprint
     app.register_blueprint(survey_from_raw_data_bp, url_prefix='/api/v1/survey-from-raw-data')  
+    
+    # Register survey from raw gyro blueprint
+    app.register_blueprint(survey_from_raw_gyro_bp, url_prefix='/api/v1/survey-from-raw-gyro')
 
     
     @app.route('/healthz', methods=['GET'])
