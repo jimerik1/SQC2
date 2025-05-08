@@ -9,6 +9,7 @@ from src.routes.toolcode import toolcode_bp
 from src.routes.recommendations import recommendations_bp
 from src.routes.synthetic_data import synthetic_data_bp, parse_bp
 from src.routes.corrections.corrections import corrections_bp
+from src.routes.survey_from_raw_data import survey_from_raw_data_bp
 
 
 def create_app(config_name=None):
@@ -42,6 +43,9 @@ def create_app(config_name=None):
 
     # Register corrections blueprint
     app.register_blueprint(corrections_bp, url_prefix='/api/v1/corrections')  
+    
+    # Register survey from raw data blueprint
+    app.register_blueprint(survey_from_raw_data_bp, url_prefix='/api/v1/survey-from-raw-data')  
 
     
     @app.route('/healthz', methods=['GET'])

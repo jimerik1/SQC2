@@ -8,6 +8,7 @@ def generate_synthetic_raw_data(trajectory_data, magnetic_dip=73.484, magnetic_f
                               optimization_params=None):
     """
     Generate raw survey data using numerical optimization to match all parameters simultaneously.
+    Enhanced with improved stability for low-inclination wells and rotating priority system.
     
     Parameters:
     -----------
@@ -26,19 +27,32 @@ def generate_synthetic_raw_data(trajectory_data, magnetic_dip=73.484, magnetic_f
     noise_level : float
         Relative magnitude of noise to add
     optimization_params : dict
-        Dictionary of parameters for controlling the optimization
+        Dictionary of parameters for controlling the optimization:
+        - primary_method: str - Method for first optimization ('trf', 'lm', 'dogbox')
+        - fallback_methods: list - List of fallback methods to try
+        - max_iter_primary: int - Max iterations for primary method
+        - max_iter_fallback: int - Max iterations for fallback methods
+        - ftol: float - Function tolerance for convergence
+        - xtol: float - Parameter tolerance for convergence
+        - priority_rotation: bool - Whether to rotate through different parameter priorities
+        - priority_weights: list - List of weight dictionaries for different priority combinations
+        - low_inc_threshold: float - Threshold for low inclination special handling (degrees)
+        - azi_success_threshold: float - Maximum acceptable azimuth error in degrees
+        - mag_success_threshold: float - Maximum acceptable field magnitude error in nT
+        - smoothing_enabled: bool - Whether to apply smoothing between solutions
+        - extrapolation_enabled: bool - Whether to extrapolate from previous solutions
         
     Returns:
     --------
-    dict: Dictionary with raw sensor data and original trajectory data
+    dict: Dictionary with raw sensor data, original trajectory data, and stats
     """
     # Convert dictionary to DataFrame if necessary
     if isinstance(trajectory_data, dict):
         trajectory_df = pd.DataFrame(trajectory_data)
     else:
         trajectory_df = trajectory_data.copy()
-        
-    # Default optimization parameters
+    
+    # Default optimization parameters with enhanced configuration
     default_params = {
         'primary_method': 'trf',
         'fallback_methods': ['lm', 'Nelder-Mead', 'COBYLA', 'differential_evolution'],
@@ -46,9 +60,18 @@ def generate_synthetic_raw_data(trajectory_data, magnetic_dip=73.484, magnetic_f
         'max_iter_fallback': 300,
         'ftol': 1e-11,
         'xtol': 1e-11,
-        'dip_weight': 10.0,
+        'priority_rotation': True,  # Enable rotation of priorities
+        'priority_weights': [  # Different weight combinations to try
+            {'dip_weight': 10.0, 'azi_weight': 5.0, 'mag_weight': 1.0},
+            {'dip_weight': 1.0, 'azi_weight': 10.0, 'mag_weight': 1.0},
+            {'dip_weight': 1.0, 'azi_weight': 1.0, 'mag_weight': 10.0},
+        ],
+        'low_inc_threshold': 3.0,  # Degrees below which special handling is used
         'azi_success_threshold': 1.0,  # degrees
-        'mag_success_threshold': 1000.0   # nT
+        'mag_success_threshold': 1000.0,   # nT
+        'smoothing_enabled': True,  # Enable solution smoothing
+        'extrapolation_enabled': True,  # Enable extrapolation from previous points
+        'smoothing_factor': 0.3,  # Factor for solution smoothing (0-1)
     }
     
     # Update with user-provided parameters if any
@@ -58,7 +81,6 @@ def generate_synthetic_raw_data(trajectory_data, magnetic_dip=73.484, magnetic_f
     # Use updated parameters
     opt_params = default_params
     
-    # Extract trajectory data
     n_points = len(trajectory_df)
     Gx = np.zeros(n_points)
     Gy = np.zeros(n_points)
@@ -83,6 +105,12 @@ def generate_synthetic_raw_data(trajectory_data, magnetic_dip=73.484, magnetic_f
     failure_count = 0
     special_case_count = 0
     
+    # Dictionary to track success per priority configuration
+    priority_success = {str(weights): 0 for weights in opt_params['priority_weights']}
+    
+    # Keep track of previous solution for continuity
+    previous_solution = None
+    
     for i in range(n_points):
         inc = np.radians(trajectory_df['Inc'].values[i])
         azi = np.radians(trajectory_df['Azi'].values[i])
@@ -98,209 +126,297 @@ def generate_synthetic_raw_data(trajectory_data, magnetic_dip=73.484, magnetic_f
         Gy[i] = gravity * sin_inc * sin_azi
         Gz[i] = gravity * cos_inc
         
-        # For near-vertical wells, use special case
-        if inc < np.radians(0.5):
-            Bx[i] = magnetic_field_strength * np.cos(dip_rad) * np.cos(azi)
-            By[i] = magnetic_field_strength * np.cos(dip_rad) * np.sin(azi)
-            Bz[i] = magnetic_field_strength * np.sin(dip_rad)
-            special_case_count += 1
-            continue
+        # Enhanced low-inclination handling
+        if inc < np.radians(opt_params['low_inc_threshold']):
+            # Use more robust low-inclination handling
+            # Use a more gradual transition between vertical and non-vertical solutions
+            transition_factor = inc / np.radians(opt_params['low_inc_threshold'])
             
-        # Generate initial guess based on rotation from NED to tool frame
-        rotation_matrix = np.array([
-            [sin_inc * cos_azi, sin_inc * sin_azi, cos_inc],
-            [sin_azi, -cos_azi, 0],
-            [cos_inc * cos_azi, cos_inc * sin_azi, -sin_inc]
-        ])
-        
-        B_ned = np.array([Bx_geo, By_geo, Bz_geo])
-        B_tool_initial = np.dot(rotation_matrix, B_ned)
-        
-        # Define the residual function for optimization
-        def residuals(B_vec):
-            Bx_val, By_val, Bz_val = B_vec
+            # Base solution for vertical case
+            vertical_solution = [
+                magnetic_field_strength * np.cos(dip_rad) * np.cos(azi),
+                magnetic_field_strength * np.cos(dip_rad) * np.sin(azi),
+                magnetic_field_strength * np.sin(dip_rad)
+            ]
             
-            # Calculate azimuth from current B-field
-            num = Gx[i] * By_val - Gy[i] * Bx_val
-            den = Bz_val * (Gx[i]**2 + Gy[i]**2) - Gz[i] * (Gx[i] * Bx_val + Gy[i] * By_val)
-            calc_azi = np.arctan2(num, den)
-            
-            # Calculate field magnitude
-            calc_mag = np.sqrt(Bx_val**2 + By_val**2 + Bz_val**2)
-            
-            # Calculate dip angle (using standard method matching validation code)
-            G_norm = np.array([Gx[i], Gy[i], Gz[i]]) / np.sqrt(Gx[i]**2 + Gy[i]**2 + Gz[i]**2)
-            B_norm = np.array([Bx_val, By_val, Bz_val]) / calc_mag
-            dot_product = np.dot(B_norm, G_norm)
-            calc_dip = np.arcsin(np.clip(dot_product, -1.0, 1.0))
-            
-            # Calculate errors
-            azi_error = np.sin(calc_azi - azi)  # Normalized to handle circular values
-            mag_error = (calc_mag - magnetic_field_strength) / magnetic_field_strength  # Normalized
-            dip_error = (calc_dip - dip_rad) * opt_params['dip_weight']  # Weighted
-            
-            return [azi_error, mag_error, dip_error]
-        
-        # Objective function for scalar optimization methods
-        def objective(B_vec):
-            errors = residuals(B_vec)
-            return np.sum(np.array(errors) ** 2)  # Sum of squared errors
-        
-        # Try optimization with primary method
-        try:
-            result = least_squares(
-                residuals, 
-                B_tool_initial, 
-                method=opt_params['primary_method'],
-                ftol=opt_params['ftol'], 
-                xtol=opt_params['xtol'],
-                max_nfev=opt_params['max_iter_primary']
-            )
-            
-            # Check if converged with good enough results
-            final_residuals = residuals(result.x)
-            current_solution = result.x
-            
-            # Calculate metrics for evaluation
-            num = Gx[i] * current_solution[1] - Gy[i] * current_solution[0]
-            den = current_solution[2] * (Gx[i]**2 + Gy[i]**2) - Gz[i] * (Gx[i] * current_solution[0] + Gy[i] * current_solution[1])
-            final_azi = np.degrees(np.arctan2(num, den))
-            final_mag = np.sqrt(current_solution[0]**2 + current_solution[1]**2 + current_solution[2]**2)
-            target_azi = np.degrees(azi)
-            azi_diff = abs(final_azi - target_azi) % 360
-            azi_diff = min(azi_diff, 360 - azi_diff)
-            mag_diff = final_mag - magnetic_field_strength
-            
-            # Check if solution is acceptable
-            if azi_diff < opt_params['azi_success_threshold'] and abs(mag_diff) < opt_params['mag_success_threshold']:
-                success_count += 1
-                primary_success += 1
+            # If we have a previous solution and extrapolation is enabled, use it for stability
+            if previous_solution is not None and opt_params['extrapolation_enabled']:
+                # Calculate a blended solution
+                blended_solution = [
+                    vertical_solution[0] * (1-transition_factor) + previous_solution[0] * transition_factor,
+                    vertical_solution[1] * (1-transition_factor) + previous_solution[1] * transition_factor,
+                    vertical_solution[2] * (1-transition_factor) + previous_solution[2] * transition_factor
+                ]
+                Bx[i], By[i], Bz[i] = blended_solution
+                
+                # Verify and adjust if needed
+                current_mag = np.sqrt(Bx[i]**2 + By[i]**2 + Bz[i]**2)
+                if abs(current_mag - magnetic_field_strength) > opt_params['mag_success_threshold']:
+                    # Scale to maintain correct field magnitude
+                    scale = magnetic_field_strength / current_mag
+                    Bx[i] *= scale
+                    By[i] *= scale
+                    Bz[i] *= scale
+                
+                previous_solution = [Bx[i], By[i], Bz[i]]
+                special_case_count += 1
+                continue
             else:
-                # Try fallback methods if primary method didn't work well enough
-                solved = False
-                
-                for method in opt_params['fallback_methods']:
-                    try:
-                        if method == 'differential_evolution':
-                            # Global optimization
-                            bounds = [(current_solution[0] - magnetic_field_strength/2, current_solution[0] + magnetic_field_strength/2),
-                                      (current_solution[1] - magnetic_field_strength/2, current_solution[1] + magnetic_field_strength/2),
-                                      (current_solution[2] - magnetic_field_strength/2, current_solution[2] + magnetic_field_strength/2)]
-                            
-                            result = differential_evolution(
-                                objective,
-                                bounds,
-                                maxiter=opt_params['max_iter_fallback'],
-                                tol=opt_params['ftol'],
-                                polish=True
-                            )
-                            current_solution = result.x
-                        elif method == 'lm':
-                            # LM method for least_squares
-                            result = least_squares(
-                                residuals,
-                                current_solution,
-                                method='lm',
-                                ftol=opt_params['ftol'],
-                                xtol=opt_params['xtol'],
-                                max_nfev=opt_params['max_iter_fallback']
-                            )
-                            current_solution = result.x
-                        else:
-                            # General minimize methods
-                            result = minimize(
-                                objective,
-                                current_solution,
-                                method=method,
-                                tol=opt_params['ftol'],
-                                options={'maxiter': opt_params['max_iter_fallback']}
-                            )
-                            current_solution = result.x
-                            
-                        # Check results
-                        num = Gx[i] * current_solution[1] - Gy[i] * current_solution[0]
-                        den = current_solution[2] * (Gx[i]**2 + Gy[i]**2) - Gz[i] * (Gx[i] * current_solution[0] + Gy[i] * current_solution[1])
-                        final_azi = np.degrees(np.arctan2(num, den))
-                        final_mag = np.sqrt(current_solution[0]**2 + current_solution[1]**2 + current_solution[2]**2)
-                        target_azi = np.degrees(azi)
-                        azi_diff = abs(final_azi - target_azi) % 360
-                        azi_diff = min(azi_diff, 360 - azi_diff)
-                        mag_diff = final_mag - magnetic_field_strength
-                        
-                        if azi_diff < opt_params['azi_success_threshold'] and abs(mag_diff) < opt_params['mag_success_threshold']:
-                            success_count += 1
-                            fallback_success += 1
-                            solved = True
-                            break
-                        
-                    except Exception:
-                        continue
-                
-                # If all optimization methods failed, use direct calculation
-                if not solved:
-                    failure_count += 1
-                    
-                    # Direct calculation of By
-                    try:
-                        # Handle special cases for cardinal azimuths
-                        if np.abs(np.tan(azi)) < 1e-10 or np.abs(np.tan(azi)) > 1e10:
-                            if np.abs(np.cos(azi)) > 0.7:  # Close to 0 or 180 degrees
-                                By_value = (Gy[i] * current_solution[0]) / Gx[i]
-                            else:  # Close to 90 or 270 degrees
-                                By_value = ((current_solution[2] * (Gx[i]**2 + Gy[i]**2) - 
-                                             Gz[i] * Gx[i] * current_solution[0]) / (Gz[i] * Gy[i]))
-                        else:
-                            # Standard calculation
-                            By_value = (np.tan(azi) * current_solution[2] * (Gx[i]**2 + Gy[i]**2) -
-                                        np.tan(azi) * Gz[i] * Gx[i] * current_solution[0] +
-                                        Gy[i] * current_solution[0]) / (Gx[i] + np.tan(azi) * Gz[i] * Gy[i])
-                        
-                        # Update solution
-                        current_solution[1] = By_value
-                        
-                        # Scale to maintain correct field magnitude
-                        current_mag = np.sqrt(np.sum(current_solution**2))
-                        scale = magnetic_field_strength / current_mag
-                        current_solution *= scale
-                        
-                    except Exception:
-                        # Keep the best solution so far even if direct calculation fails
-                        pass
+                # Use the vertical solution directly
+                Bx[i], By[i], Bz[i] = vertical_solution
+                previous_solution = vertical_solution
+                special_case_count += 1
+                continue
         
-        except Exception:
-            failure_count += 1
-            
-            # Fallback to a simpler initialization and try again
-            B_tool_initial = np.array([
-                magnetic_field_strength/3,
-                magnetic_field_strength/3,
-                magnetic_field_strength/3
+        # Define function to create residual function with specific weights
+        def create_residual_function(weights):
+            def residuals(B_vec):
+                Bx_val, By_val, Bz_val = B_vec
+                
+                # Calculate azimuth from current B-field
+                num = Gx[i] * By_val - Gy[i] * Bx_val
+                den = Bz_val * (Gx[i]**2 + Gy[i]**2) - Gz[i] * (Gx[i] * Bx_val + Gy[i] * By_val)
+                calc_azi = np.arctan2(num, den)
+                
+                # Calculate field magnitude
+                calc_mag = np.sqrt(Bx_val**2 + By_val**2 + Bz_val**2)
+                
+                # Calculate dip angle (using standard method matching validation code)
+                G_norm = np.array([Gx[i], Gy[i], Gz[i]]) / np.sqrt(Gx[i]**2 + Gy[i]**2 + Gz[i]**2)
+                B_norm = np.array([Bx_val, By_val, Bz_val]) / calc_mag
+                dot_product = np.dot(B_norm, G_norm)
+                calc_dip = np.arcsin(np.clip(dot_product, -1.0, 1.0))
+                
+                # Calculate errors with weights
+                azi_error = np.sin(calc_azi - azi) * weights['azi_weight']
+                mag_error = (calc_mag - magnetic_field_strength) / magnetic_field_strength * weights['mag_weight']
+                dip_error = (calc_dip - dip_rad) * weights['dip_weight']
+                
+                return [azi_error, mag_error, dip_error]
+            return residuals
+        
+        # Define function to create objective function from residual function
+        def create_objective_function(residual_func):
+            def objective(B_vec):
+                errors = residual_func(B_vec)
+                return np.sum(np.array(errors) ** 2)
+            return objective
+        
+        # Get initial guess
+        if previous_solution is not None and opt_params['extrapolation_enabled']:
+            # Use previous solution as initial guess
+            B_tool_initial = previous_solution
+        else:
+            # Generate initial guess based on rotation from NED to tool frame
+            rotation_matrix = np.array([
+                [sin_inc * cos_azi, sin_inc * sin_azi, cos_inc],
+                [sin_azi, -cos_azi, 0],
+                [cos_inc * cos_azi, cos_inc * sin_azi, -sin_inc]
             ])
             
+            B_ned = np.array([Bx_geo, By_geo, Bz_geo])
+            B_tool_initial = np.dot(rotation_matrix, B_ned)
+        
+        # Try optimization with different priority weights
+        solved = False
+        current_solution = B_tool_initial.copy()  # Default in case all optimizations fail
+        
+        # Determine weight combinations to try
+        if opt_params['priority_rotation']:
+            weight_combinations = opt_params['priority_weights']
+        else:
+            # Just use the first weight combination
+            weight_combinations = [opt_params['priority_weights'][0]]
+        
+        # Try each weight combination
+        for weights in weight_combinations:
+            if solved:
+                break
+                
+            residual_func = create_residual_function(weights)
+            objective_func = create_objective_function(residual_func)
+            
+            # Try optimization with primary method
             try:
-                # Use a robust optimizer as direct fallback
-                result = differential_evolution(
-                    objective,
-                    [(-magnetic_field_strength, magnetic_field_strength),
-                     (-magnetic_field_strength, magnetic_field_strength),
-                     (-magnetic_field_strength, magnetic_field_strength)],
-                    maxiter=opt_params['max_iter_fallback'],
-                    tol=opt_params['ftol']
+                result = least_squares(
+                    residual_func, 
+                    B_tool_initial, 
+                    method=opt_params['primary_method'],
+                    ftol=opt_params['ftol'], 
+                    xtol=opt_params['xtol'],
+                    max_nfev=opt_params['max_iter_primary']
                 )
+                
+                # Check if converged with good enough results
                 current_solution = result.x
                 
+                # Calculate metrics for evaluation
+                num = Gx[i] * current_solution[1] - Gy[i] * current_solution[0]
+                den = current_solution[2] * (Gx[i]**2 + Gy[i]**2) - Gz[i] * (Gx[i] * current_solution[0] + Gy[i] * current_solution[1])
+                final_azi = np.degrees(np.arctan2(num, den))
+                final_mag = np.sqrt(current_solution[0]**2 + current_solution[1]**2 + current_solution[2]**2)
+                target_azi = np.degrees(azi)
+                azi_diff = abs(final_azi - target_azi) % 360
+                azi_diff = min(azi_diff, 360 - azi_diff)
+                mag_diff = final_mag - magnetic_field_strength
+                
+                # Check if solution is acceptable
+                if azi_diff < opt_params['azi_success_threshold'] and abs(mag_diff) < opt_params['mag_success_threshold']:
+                    success_count += 1
+                    primary_success += 1
+                    priority_success[str(weights)] = priority_success.get(str(weights), 0) + 1
+                    solved = True
+                    break
+                else:
+                    # Try fallback methods if primary method didn't work well enough
+                    for method in opt_params['fallback_methods']:
+                        try:
+                            if method == 'differential_evolution':
+                                # Global optimization
+                                bounds = [(current_solution[0] - magnetic_field_strength/2, current_solution[0] + magnetic_field_strength/2),
+                                          (current_solution[1] - magnetic_field_strength/2, current_solution[1] + magnetic_field_strength/2),
+                                          (current_solution[2] - magnetic_field_strength/2, current_solution[2] + magnetic_field_strength/2)]
+                                
+                                result = differential_evolution(
+                                    objective_func,
+                                    bounds,
+                                    maxiter=opt_params['max_iter_fallback'],
+                                    tol=opt_params['ftol'],
+                                    polish=True
+                                )
+                                current_solution = result.x
+                            elif method == 'lm':
+                                # LM method for least_squares
+                                result = least_squares(
+                                    residual_func,
+                                    current_solution,
+                                    method='lm',
+                                    ftol=opt_params['ftol'],
+                                    xtol=opt_params['xtol'],
+                                    max_nfev=opt_params['max_iter_fallback']
+                                )
+                                current_solution = result.x
+                            else:
+                                # General minimize methods
+                                result = minimize(
+                                    objective_func,
+                                    current_solution,
+                                    method=method,
+                                    tol=opt_params['ftol'],
+                                    options={'maxiter': opt_params['max_iter_fallback']}
+                                )
+                                current_solution = result.x
+                                
+                            # Check results
+                            num = Gx[i] * current_solution[1] - Gy[i] * current_solution[0]
+                            den = current_solution[2] * (Gx[i]**2 + Gy[i]**2) - Gz[i] * (Gx[i] * current_solution[0] + Gy[i] * current_solution[1])
+                            final_azi = np.degrees(np.arctan2(num, den))
+                            final_mag = np.sqrt(current_solution[0]**2 + current_solution[1]**2 + current_solution[2]**2)
+                            target_azi = np.degrees(azi)
+                            azi_diff = abs(final_azi - target_azi) % 360
+                            azi_diff = min(azi_diff, 360 - azi_diff)
+                            mag_diff = final_mag - magnetic_field_strength
+                            
+                            if azi_diff < opt_params['azi_success_threshold'] and abs(mag_diff) < opt_params['mag_success_threshold']:
+                                success_count += 1
+                                fallback_success += 1
+                                priority_success[str(weights)] = priority_success.get(str(weights), 0) + 1
+                                solved = True
+                                break
+                            
+                        except Exception:
+                            continue
+                    
+                    # Break the outer loop if a method succeeded
+                    if solved:
+                        break
+            
             except Exception:
-                # Use the initial guess as a last resort
-                current_solution = B_tool_initial
+                pass  # Continue to next weight combination
+        
+        # If all optimization approaches failed, use direct calculation
+        if not solved:
+            failure_count += 1
+            
+            # Direct calculation of By
+            try:
+                # Handle special cases for cardinal azimuths
+                if np.abs(np.tan(azi)) < 1e-10 or np.abs(np.tan(azi)) > 1e10:
+                    if np.abs(np.cos(azi)) > 0.7:  # Close to 0 or 180 degrees
+                        By_value = (Gy[i] * current_solution[0]) / Gx[i]
+                    else:  # Close to 90 or 270 degrees
+                        By_value = ((current_solution[2] * (Gx[i]**2 + Gy[i]**2) - 
+                                     Gz[i] * Gx[i] * current_solution[0]) / (Gz[i] * Gy[i]))
+                else:
+                    # Standard calculation
+                    By_value = (np.tan(azi) * current_solution[2] * (Gx[i]**2 + Gy[i]**2) -
+                                np.tan(azi) * Gz[i] * Gx[i] * current_solution[0] +
+                                Gy[i] * current_solution[0]) / (Gx[i] + np.tan(azi) * Gz[i] * Gy[i])
+                
+                # Update solution
+                current_solution[1] = By_value
                 
                 # Scale to maintain correct field magnitude
                 current_mag = np.sqrt(np.sum(current_solution**2))
-                if current_mag > 0:
-                    scale = magnetic_field_strength / current_mag
-                    current_solution *= scale
+                scale = magnetic_field_strength / current_mag
+                current_solution *= scale
+                
+            except Exception:
+                # Try a more aggressive approach if direct calculation fails
+                try:
+                    # Use a robust optimizer as emergency fallback
+                    result = differential_evolution(
+                        lambda B_vec: (np.sqrt(B_vec[0]**2 + B_vec[1]**2 + B_vec[2]**2) - magnetic_field_strength)**2 + 
+                                      100 * np.sin(np.arctan2(Gx[i] * B_vec[1] - Gy[i] * B_vec[0], 
+                                                             B_vec[2] * (Gx[i]**2 + Gy[i]**2) - Gz[i] * (Gx[i] * B_vec[0] + Gy[i] * B_vec[1])) - azi)**2,
+                        [(-magnetic_field_strength, magnetic_field_strength),
+                         (-magnetic_field_strength, magnetic_field_strength),
+                         (-magnetic_field_strength, magnetic_field_strength)],
+                        maxiter=100,
+                        tol=1e-8
+                    )
+                    current_solution = result.x
+                except Exception:
+                    # If all else fails, use initial guess and scale it
+                    current_mag = np.sqrt(np.sum(B_tool_initial**2))
+                    if current_mag > 0:
+                        scale = magnetic_field_strength / current_mag
+                        current_solution = B_tool_initial * scale
         
         # Store final values
         Bx[i], By[i], Bz[i] = current_solution
+        
+        # If smoothing is enabled and not the first point, consider smoothing
+        if i > 0 and opt_params['smoothing_enabled'] and (not solved):
+            smoothing_factor = opt_params['smoothing_factor']
+            orig_solution = [Bx[i], By[i], Bz[i]]
+            
+            # Blend with previous solution
+            Bx[i] = Bx[i] * (1 - smoothing_factor) + Bx[i-1] * smoothing_factor
+            By[i] = By[i] * (1 - smoothing_factor) + By[i-1] * smoothing_factor
+            Bz[i] = Bz[i] * (1 - smoothing_factor) + Bz[i-1] * smoothing_factor
+            
+            # Rescale to maintain field strength
+            current_mag = np.sqrt(Bx[i]**2 + By[i]**2 + Bz[i]**2)
+            scale = magnetic_field_strength / current_mag
+            Bx[i] *= scale
+            By[i] *= scale
+            Bz[i] *= scale
+            
+            # Verify the smoothed solution
+            num = Gx[i] * By[i] - Gy[i] * Bx[i]
+            den = Bz[i] * (Gx[i]**2 + Gy[i]**2) - Gz[i] * (Gx[i] * Bx[i] + Gy[i] * By[i])
+            smoothed_azi = np.degrees(np.arctan2(num, den))
+            target_azi = np.degrees(azi)
+            azi_diff_smoothed = abs(smoothed_azi - target_azi) % 360
+            azi_diff_smoothed = min(azi_diff_smoothed, 360 - azi_diff_smoothed)
+            
+            # If smoothing made things worse, revert
+            if i > 1 and azi_diff_smoothed > azi_diff:
+                Bx[i], By[i], Bz[i] = orig_solution
+        
+        # Store this solution for use in the next iteration
+        previous_solution = [Bx[i], By[i], Bz[i]]
     
     # Add noise if requested
     if add_noise:
@@ -327,7 +443,7 @@ def generate_synthetic_raw_data(trajectory_data, magnetic_dip=73.484, magnetic_f
     # Add toolface if it exists in input
     if 'tfo' in trajectory_df.columns:
         result_data['tfo'] = trajectory_df['tfo'].tolist()
-        
+    
     # Add stats for diagnostics
     stats = {
         'total_points': n_points,
@@ -335,7 +451,8 @@ def generate_synthetic_raw_data(trajectory_data, magnetic_dip=73.484, magnetic_f
         'primary_success': primary_success,
         'fallback_success': fallback_success,
         'failure_count': failure_count,
-        'special_case_count': special_case_count
+        'special_case_count': special_case_count,
+        'priority_success': {k: v for k, v in priority_success.items() if v > 0}
     }
     
     return {

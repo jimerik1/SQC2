@@ -44,7 +44,10 @@ def gravity_error_test():
     # Extract sigma value with default of 3.0 if not specified
     sigma = data['survey'].get('sigma', 3.0)
 
-    result = perform_get(data['survey'], data['ipm'], theory_g, sigma)
+    result = perform_get(data['survey'], data['ipm'],
+                        theoretical_gravity=data['survey']['expected_gravity'],  # still 9.81
+                        sigma=data['survey'].get('sigma', 3.0))    
+    
     return jsonify(result)
 
 @single_station_bp.route('/tfdt', methods=['POST'])
@@ -122,7 +125,7 @@ def horizontal_earth_rate_test():
     
     # Validate required inputs
     required_fields = ['gyro_x', 'gyro_y', 'inclination', 'azimuth', 
-                      'toolface', 'latitude', 'expected_horizontal_rate']
+                      'toolface', 'latitude']
     
     for field in required_fields:
         if field not in data['survey']:

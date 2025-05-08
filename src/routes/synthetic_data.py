@@ -157,6 +157,123 @@ def validate_raw_data():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@synthetic_data_bp.route('/generate-point', methods=['POST'])
+def generate_single_point():
+    """
+    Generate synthetic raw sensor data for a single survey point
+    
+    Expected input format:
+    {
+        "surveypoint": {
+            "Depth": 2010,        # meters
+            "Inc": 15,            # degrees
+            "Azi": 132,           # degrees
+            "Toolface": 101       # degrees (optional)
+        },
+        "parameters": {
+            "magnetic_dip": 73.484,          # degrees
+            "magnetic_field_strength": 51541.551,  # nT
+            "gravity": 9.81,                 # m/s²
+            "declination": 1.429,            # degrees
+            "add_noise": false,              # boolean (optional)
+            "noise_level": 0.001             # ratio (optional)
+        },
+        "validate": true,              # boolean (optional)
+        "include_stats": true          # boolean (optional)
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+            
+        if 'surveypoint' not in data:
+            return jsonify({"error": "Survey point data is required"}), 400
+            
+        survey_point = data['surveypoint']
+        required_fields = ['Depth', 'Inc', 'Azi']
+        
+        for field in required_fields:
+            if field not in survey_point:
+                return jsonify({"error": f"Missing required field in survey point data: {field}"}), 400
+                
+        # Extract parameters with defaults
+        parameters = data.get('parameters', {})
+        magnetic_dip = parameters.get('magnetic_dip', 73.484)
+        magnetic_field_strength = parameters.get('magnetic_field_strength', 51541.551)
+        gravity = parameters.get('gravity', 9.81)
+        declination = parameters.get('declination', 1.429)
+        add_noise = parameters.get('add_noise', False)
+        noise_level = parameters.get('noise_level', 0.001)
+        
+        # Create a trajectory with a single point
+        trajectory_data = {
+            'Depth': [survey_point['Depth']],
+            'Inc': [survey_point['Inc']],
+            'Azi': [survey_point['Azi']]
+        }
+        
+        # Add toolface if it exists in input (renamed from Toolface to tfo)
+        if 'Toolface' in survey_point:
+            trajectory_data['tfo'] = [survey_point['Toolface']]
+        
+        # Generate synthetic data
+        result = generate_synthetic_raw_data(
+            trajectory_data,
+            magnetic_dip=magnetic_dip,
+            magnetic_field_strength=magnetic_field_strength,
+            gravity=gravity,
+            declination=declination,
+            add_noise=add_noise,
+            noise_level=noise_level
+        )
+        
+        # Extract the first (and only) point's data
+        point_data = {}
+        for key in result['sensor_data']:
+            point_data[key] = result['sensor_data'][key][0] if result['sensor_data'][key] else None
+        
+        # Create the response
+        response = {
+            'sensor_data': point_data,
+            'parameters': result['parameters']
+        }
+        
+        # Optionally validate the synthetic data
+        if data.get('validate', False):
+            # Create a single-point sensor data structure
+            single_point_data = {}
+            for key in result['sensor_data']:
+                single_point_data[key] = [result['sensor_data'][key][0]] if result['sensor_data'][key] else []
+            
+            validation = validate_synthetic_data(
+                {'sensor_data': single_point_data},
+                magnetic_dip=magnetic_dip,
+                magnetic_field_strength=magnetic_field_strength,
+                gravity=gravity,
+                declination=declination
+            )
+            
+            # Extract the first (and only) point's validation data
+            validation_point_data = {}
+            for key in validation['validation_data']:
+                validation_point_data[key] = validation['validation_data'][key][0] if validation['validation_data'][key] else None
+            
+            response['validation'] = {
+                'validation_data': validation_point_data,
+                'validation_stats': validation['validation_stats']
+            }
+            
+        # Include stats if requested
+        if data.get('include_stats', True) and 'stats' in result:
+            response['stats'] = result['stats']
+        
+        return jsonify(response)
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @parse_bp.route('/parse', methods=['POST'])
 def parse_text_to_json():
     """

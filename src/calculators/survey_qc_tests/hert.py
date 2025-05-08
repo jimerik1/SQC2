@@ -28,9 +28,14 @@ AZI_CARDINAL_TOL = 15.0      # warn if azimuth within ±15° of 0, 90, 180, 270
 # --------------------------------------------------------------------------- #
 #  Public entry point
 # --------------------------------------------------------------------------- #
-def perform_hert(survey: dict, ipm_data):
+def perform_hert(survey: dict, ipm_data, sigma: float = 3.0):
     """
     Horizontal Earth-Rate Test for xy-gyro systems.
+    
+    Args:
+        survey: Dictionary containing survey data
+        ipm_data: IPM file content or parsed object
+        sigma: Confidence level multiplier (default: 3.0 for 3σ)
     """
     gyro_x = survey["gyro_x"]
     gyro_y = survey["gyro_y"]
@@ -56,7 +61,7 @@ def perform_hert(survey: dict, ipm_data):
     h_rate_error = measured_h_rate - theoretical_h_rate
 
     # 4. tolerance
-    tol = _hert_tolerance(ipm_data, inc, az, lat)
+    tol = _hert_tolerance(ipm_data, inc, az, lat, sigma)
 
     # 5. verdict
     is_valid = abs(h_rate_error) <= tol
@@ -109,9 +114,10 @@ def _hert_weights(inclination_deg: float, azimuth_deg: float):
 
 
 def _hert_tolerance(ipm_data,
-                    inclination_deg: float,
-                    azimuth_deg: float,
-                    latitude_deg: float) -> float:
+                   inclination_deg: float,
+                   azimuth_deg: float,
+                   latitude_deg: float,
+                   sigma: float = 3.0) -> float:
     """3 σ tolerance δΩ_h  (deg / hr)."""
     ipm = parse_ipm_file(ipm_data) if isinstance(ipm_data, str) else ipm_data
 
@@ -143,7 +149,7 @@ def _hert_tolerance(ipm_data,
         (q   * w_q)   ** 2 +
         gr ** 2
     )
-    return 3.0 * math.sqrt(var)
+    return sigma * math.sqrt(var)  # Changed from 3.0 to configurable sigma
 
 
 # --------------------------------------------------------------------------- #
