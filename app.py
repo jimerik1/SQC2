@@ -7,10 +7,11 @@ from src.routes.comparison_qc.comparison import comparison_qc_bp
 from src.routes.internal_qc.measurement import measurement_bp
 from src.routes.toolcode import toolcode_bp
 from src.routes.recommendations import recommendations_bp
-from src.routes.synthetic_data import synthetic_data_bp, parse_bp
+from src.routes.survey_conversions.synthetic_data import synthetic_data_bp, parse_bp
 from src.routes.corrections.corrections import corrections_bp
-from src.routes.survey_from_raw_data import survey_from_raw_data_bp
-from src.routes.survey_from_raw_gyro import survey_from_raw_gyro_bp
+from src.routes.survey_conversions.survey_from_raw_data import survey_from_raw_data_bp
+from src.routes.survey_conversions.survey_from_raw_gyro import survey_from_raw_gyro_bp
+from src.routes.test_generator import test_generator_bp
 
 
 def create_app(config_name=None):
@@ -50,6 +51,9 @@ def create_app(config_name=None):
     
     # Register survey from raw gyro blueprint
     app.register_blueprint(survey_from_raw_gyro_bp, url_prefix='/api/v1/survey-from-raw-gyro')
+    
+    # Register test generator blueprint
+    app.register_blueprint(test_generator_bp, url_prefix='/api/v1/test-generator')
 
     
     @app.route('/healthz', methods=['GET'])

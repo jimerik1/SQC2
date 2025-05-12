@@ -1,3 +1,4 @@
+# src/routes/survey_conversions/survey_from_raw_gyro.py
 from flask import Blueprint, request, jsonify
 import math
 import numpy as np
@@ -38,7 +39,7 @@ def calculate_from_gyro():
         for field in required_fields:
             if field not in data:
                 return jsonify({'error': f'Missing required field: {field}'}), 400
-        
+                    
         # Get parameters from request
         gyro_x = float(data['gyro_x'])  # deg/hr
         gyro_y = float(data['gyro_y'])  # deg/hr
@@ -47,6 +48,9 @@ def calculate_from_gyro():
         acc_z = float(data['accelerometer_z'])  # m/s²
         latitude = float(data['latitude'])  # degrees
         
+        if not -90 <= latitude <= 90:
+            return jsonify({'error': 'Latitude must be between -90 and 90 degrees'}), 400
+
         # Calculate directional parameters based on gyro type
         # Use xyz calculation only if gyro_type is xyz AND gyro_z is provided
         if gyro_type == 'xyz' and 'gyro_z' in data:
